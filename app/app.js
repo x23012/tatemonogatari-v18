@@ -247,7 +247,7 @@ VIEWS.card = id => {
   };
 };
 
-/** 「どんな旅か」の箱（tabi.js の定型文から作る）。short: 名前とタイプだけ */
+/** 「どんな旅か」の箱（tabi.js の定型文から作る）。short: 名前だけ */
 function tabiBox(items, short) {
   if (typeof Tabi === 'undefined') return '';
   const t = Tabi.make(items);
@@ -255,7 +255,6 @@ function tabiBox(items, short) {
   return `<section class="tabi">
     <p class="tabi-label">${R('あなたの{旅|たび}')}</p>
     <h3 class="tabi-title">${R(t.title)}</h3>
-    <p class="tabi-type">${R(t.type)}</p>
     ${short ? '' : `<ul class="tabi-lines">${t.lines.map(l => `<li>${R(l)}</li>`).join('')}</ul>`}
   </section>`;
 }

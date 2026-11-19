@@ -54,29 +54,6 @@ const Tabi = (() => {
       'use_shikumi+st_concrete': ['コンクリートと{鉄|てつ}のまちのしくみ{旅|たび}'],
     },
 
-    /* ---- あなたは〇〇タイプ（遊び心のひとこと） ---- */
-    type: {
-      kokuho: ['あなたは「お{宝|たから}ハンター」タイプ！', 'あなたは「{天下取|てんかと}り」タイプ！'],
-      highScore: ['あなたは「{目利|めき}き{名人|めいじん}」タイプ！', 'あなたは「いいとこどり」タイプ！'],
-      era_old: ['あなたは「{歴史|れきし}{探偵|たんてい}」タイプ！', 'あなたは「タイムトラベラー」タイプ！'],
-      era_meiji: ['あなたは「ハイカラさん」タイプ！', 'あなたは「{新|あたら}しもの{好|ず}き」タイプ！'],
-      era_taisho: ['あなたは「ロマンチスト」タイプ！', 'あなたは「レトロ{探検家|たんけんか}」タイプ！'],
-      era_showa: ['あなたは「{昭和|しょうわ}マニア」タイプ！', 'あなたは「なつかし{探偵|たんてい}」タイプ！'],
-      use_inori: ['あなたは「しずけさ{好|ず}き」タイプ！', 'あなたは「ご{利益|りやく}コレクター」タイプ！'],
-      use_kurashi: ['あなたは「くらし{研究家|けんきゅうか}」タイプ！', 'あなたは「おうち{探検家|たんけんか}」タイプ！'],
-      use_akinai: ['あなたは「{商売上手|しょうばいじょうず}」タイプ！', 'あなたは「ものづくり{博士|はかせ}」タイプ！'],
-      use_kokyo: ['あなたは「まちづくりリーダー」タイプ！', 'あなたは「みんなのまとめ{役|やく}」タイプ！'],
-      use_shikumi: ['あなたは「しくみ{発見|はっけん}{家|か}」タイプ！', 'あなたは「エンジニア」タイプ！'],
-      st_wood: ['あなたは「{木|き}の{名人|めいじん}」タイプ！'],
-      st_brick: ['あなたは「れんが{職人|しょくにん}」タイプ！'],
-      st_concrete: ['あなたは「モダン{建築家|けんちくか}」タイプ！'],
-      one_area: ['あなたは「じっくり{派|は}」タイプ！', 'あなたは「ご{当地|とうち}{博士|はかせ}」タイプ！'],
-      wide: ['あなたは「どこでも{行|い}く{冒険家|ぼうけんか}」タイプ！', 'あなたは「よくばり{旅人|たびびと}」タイプ！'],
-      seasons4: ['あなたは「{季節|きせつ}の{達人|たつじん}」タイプ！'],
-      mix: ['あなたは「なんでも{好奇心|こうきしん}」タイプ！', 'あなたは「{発見|はっけん}{名人|めいじん}」タイプ！', 'あなたは「ごちゃまぜ{上手|じょうず}」タイプ！'],
-      few: ['あなたは「これからが{楽|たの}しみ」タイプ！'],
-    },
-
     /* ---- 季節の流れ（スタンプの月があるとき）。%はじめ% %おわり% は名前、%はじめ月% %おわり月% は月 ---- */
     season: {
       same: ['%はじめ月%と%おわり月%、どちらも%季節A%。%季節A%に{集中|しゅうちゅう}してまわれる{旅|たび}。', '%季節A%の{間|あいだ}に、ぎゅっとまわる{旅|たび}。'],
@@ -172,7 +149,7 @@ const Tabi = (() => {
   const fill = (s, v) => s.replace(/%([^%]+)%/g, (m, k) => (v[k] != null ? v[k] : m));
   const countBy = (list, f) => { const m = new Map(); list.forEach(x => m.set(f(x), (m.get(f(x)) || 0) + 1)); return [...m].sort((a, b) => b[1] - a[1]); };
 
-  /** items: [{ card, month? }]（ルートの順）。戻り値 { title, type, lines: [] }（{漢字|よみ} つき） */
+  /** items: [{ card, month? }]（ルートの順）。戻り値 { title, lines: [] }（{漢字|よみ} つき） */
   function make(items) {
     items = items.filter(x => x && x.card);
     const n = items.length;
@@ -207,7 +184,6 @@ const Tabi = (() => {
     const comboKey = second && (T.combo[`${theme}+${second[0]}`] ? `${theme}+${second[0]}` : T.combo[`${second[0]}+${theme}`] ? `${second[0]}+${theme}` : null);
     const vars = { 地域: REGION_JA[regions[0][0]] || regions[0][0], 地域2: regions[1] ? (REGION_JA[regions[1][0]] || regions[1][0]) : '', 数: n, 点: total };
     const title = fill(pick(comboKey ? T.combo[comboKey] : T.title[theme], seed, 'title'), vars);
-    const type = fill(pick(T.type[theme] || T.type.mix, seed, 'type'), vars);
 
     const lines = [];
     lines.push(fill(pick(T.count, seed, 'count'), vars));
@@ -253,7 +229,7 @@ const Tabi = (() => {
     /* しめくくり */
     lines.push(pick(T.close[n <= 3 ? 'few' : n <= 7 ? 'mid' : 'many'], seed, 'close'));
 
-    return { title, type, lines, theme };
+    return { title, lines, theme };
   }
 
   /** 部品の数（README やテスト用） */

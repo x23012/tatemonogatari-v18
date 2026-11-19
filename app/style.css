@@ -299,6 +299,5 @@ p { margin: 8px 0; }
 .tabi::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 6px; background: linear-gradient(90deg, var(--kokuho), var(--juubun), var(--touroku)); }
 .tabi-label { margin: 4px 0 0; font-size: 13px; color: var(--ink-2); font-weight: 700; }
 .tabi-title { margin: 2px 0 4px; font-size: 22px; line-height: 1.6; }
-.tabi-type { margin: 0 0 6px; font-weight: 700; color: var(--accent); }
 .tabi-lines { margin: 8px 0 0; padding-left: 1.2em; line-height: 1.9; }
 .tabi-lines li { margin: 2px 0; }
