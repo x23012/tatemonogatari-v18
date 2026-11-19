@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>カード見分けテスト</title>
+<style>body{font-family:sans-serif;margin:16px;background:#f6ecd6;color:#222}canvas{border:1px solid #999;margin:2px;width:96px}pre{white-space:pre-wrap;font-size:13px}</style>
+</head><body>
+<h1>カード見分けテスト（開発用）</h1>
+<p>印刷カードをカメラで撮ったときを想定して、ずれ・傾き・暗さ・色かぶり・ぼけ・ノイズを加えた画像で試します。</p>
+<button id="run">テスト開始</button> <label>回数/枚 <input id="n" type="number" value="6" style="width:4em"></label>
+<label><input id="hard" type="checkbox"> きびしめ</label>
+<pre id="out"></pre><div id="fails"></div>
+<script src="../matcher.js"></script><script src="../dots.js"></script>
+<script>
+const IDS=[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,40,41,42,44,45,46,47,48,49,'warp'];
+const R=(a,b)=>a+Math.random()*(b-a);
+const imgs={};
+function loadImg(src){return new Promise(ok=>{const i=new Image();i.onload=()=>ok(i);i.src=src;});}
+function scene(img, hard, negative){
+  const S=432, c=document.createElement('canvas'); c.width=c.height=S; const x=c.getContext('2d');
+  // 背景：机・布・紙など
+  const bg=[[150,110,70],[90,90,95],[230,225,215],[60,45,35],[200,190,170]][Math.floor(Math.random()*5)];
+  x.fillStyle=`rgb(${bg})`; x.fillRect(0,0,S,S);
+  for(let k=0;k<60;k++){x.fillStyle=`rgba(${Math.random()<.5?'0,0,0':'255,255,255'},${R(0,.08)})`;x.fillRect(R(0,S),R(0,S),R(10,200),R(2,30));}
+  const guide=S*120/144;
+  if(img){
+    const sc=hard?R(.82,1.15):R(.88,1.1), sz=guide*sc;
+    const off=hard?.09:.06;
+    x.save(); x.translate(S/2+R(-off,off)*guide, S/2+R(-off,off)*guide);
+    x.rotate((hard?R(-9,9):R(-5,5))*Math.PI/180 + (Math.random()<.5?Math.PI:0));
+    if(!negative){x.beginPath();x.roundRect(-sz/2,-sz/2,sz,sz,sz*.04);x.clip();}
+    x.drawImage(img,-sz/2,-sz/2,sz,sz*(negative?img.height/img.width:1)); x.restore();
+  }
+  // 照明：明るさ・色かぶり・影
+  const br=hard?R(.45,1.35):R(.6,1.25), warm=hard?R(-.2,.2):R(-.12,.12);
+  const out=document.createElement('canvas'); out.width=out.height=144; const o=out.getContext('2d',{willReadFrequently:true});
+  o.filter=`blur(${R(0,hard?1.6:1)}px)`; o.drawImage(c,0,0,144,144); o.filter='none';
+  const g=o.createLinearGradient(R(0,144),0,R(0,144),144); g.addColorStop(0,`rgba(0,0,0,${R(0,hard?.35:.2)})`); g.addColorStop(1,'rgba(0,0,0,0)');
+  o.fillStyle=g; o.fillRect(0,0,144,144);
+  const d=o.getImageData(0,0,144,144), p=d.data, nz=hard?16:9;
+  for(let i=0;i<p.length;i+=4){
+    p[i]=p[i]*br*(1+warm)+R(-nz,nz); p[i+1]=p[i+1]*br+R(-nz,nz); p[i+2]=p[i+2]*br*(1-warm)+R(-nz,nz);
+  }
+  o.putImageData(d,0,0);
+  return {px:o.getImageData(0,0,144,144).data, canvas:out};
+}
+document.getElementById('run').onclick=async()=>{
+  const out=document.getElementById('out'), fails=document.getElementById('fails'); fails.innerHTML='';
+  out.textContent='見本を読みこみ中…';
+  await CardMatcher.load(IDS,'../cards/');
+  for(const id of IDS) imgs[id]=await loadImg(`../cards/${id}.jpg`);
+  const photos=[]; for(const id of [3,10,22,29,33,45,0,12]) photos.push(await loadImg(`../photos/${id}.jpg`));
+  const N=+document.getElementById('n').value, hard=document.getElementById('hard').checked;
+  let t1=0,t3=0,tot=0,acc=0,accWrong=0,accTotal=0; const dOk=[],mOk=[],dNeg=[],mNeg=[];
+  const t0=performance.now();
+  for(const id of IDS){ for(let k=0;k<N;k++){
+    const s=scene(imgs[id],hard); const r=CardMatcher.rank(s.px,144,144,120); const j=CardMatcher.judge(r);
+    tot++; const pos=r.findIndex(e=>e.id===id);
+    if(pos===0){t1++; dOk.push(r[0].d); mOk.push(r[1].d-r[0].d);} if(pos<3)t3++;
+    if(j.ok){accTotal++; if(r[0].id===id)acc++; else accWrong++;}
+    if(pos!==0){ s.canvas.title=`正解${id} → ${r.slice(0,3).map(e=>e.id+':'+e.d.toFixed(2)).join(' ')}`; fails.appendChild(s.canvas); }
+  } await new Promise(r=>setTimeout(r)); out.textContent=`…${tot}`; }
+  const ms=(performance.now()-t0)/tot;
+  // カードが写っていないとき
+  let falsePos=0, negN=0;
+  for(let k=0;k<60;k++){ const s=scene(k%2?photos[k%photos.length]:null,hard,true); const r=CardMatcher.rank(s.px,144,144,120);
+    negN++; dNeg.push(r[0].d); mNeg.push(r[1].d-r[0].d); if(CardMatcher.judge(r).ok) falsePos++; }
+  const q=(a,p)=>{const s=[...a].sort((x,y)=>x-y);return s.length?s[Math.min(s.length-1,Math.floor(p*s.length))].toFixed(3):'-';};
+  out.textContent=
+`${hard?'きびしめ':'ふつう'}  試行 ${tot}（${N}回×${IDS.length}枚）  1回の判定 ${ms.toFixed(1)}ms
+1位で正解: ${(t1/tot*100).toFixed(1)}%   3位以内に正解: ${(t3/tot*100).toFixed(1)}%
+自動で決めたもの: ${accTotal}件（正解 ${acc} / まちがい ${accWrong}）＝自動判定の割合 ${(accTotal/tot*100).toFixed(1)}%
+正解時の距離  中央 ${q(dOk,.5)}  90% ${q(dOk,.9)}  99% ${q(dOk,.99)}
+正解時の差    10% ${q(mOk,.1)}  中央 ${q(mOk,.5)}
+カードなしの距離 最小 ${q(dNeg,0)}  10% ${q(dNeg,.1)}  中央 ${q(dNeg,.5)}   カードなしで誤反応 ${falsePos}/${negN}
+（失敗した画像は下。マウスを乗せると候補）`;
+};
+</script></body></html>

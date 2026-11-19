@@ -1,0 +1,8 @@
+.DS_Store
+.claude/
+tools/card_images/img
+tools/card_images/page*.png
+__pycache__/
+app/dev/samples/
+deploy/
+テスト画像/

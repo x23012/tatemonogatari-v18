@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>四すみの点のテスト</title>
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400&text=0123456789&display=swap" rel="stylesheet">
+<style>body{font-family:sans-serif;margin:16px;background:#f6ecd6;color:#222}pre{white-space:pre-wrap;font-size:13px}canvas.v{max-width:100%;border:1px solid #999}</style>
+</head><body>
+<h1>四すみの点で見分けるテスト（開発用・ver18）</h1>
+<p>①見本そのもの（4つの向き） ②1枚ずつのカメラ（きびしめ） ③スタンプをのせて並べた机の写真（作った写真）</p>
+<button id="a">① 見本</button> <button id="b">② 1枚ずつ</button> <button id="c">③ 机の写真</button>
+<pre id="out"></pre><canvas class="v" id="view"></canvas>
+<script src="../matcher.js"></script><script src="../dots.js"></script><script src="../photoreader.js"></script>
+<script>
+const out=document.getElementById('out'); const log=t=>out.textContent+=t+'\n';
+const R=(a,b)=>a+Math.random()*(b-a);
+let CARDS=[], IDS=[], imgs={};
+const loadImg=src=>new Promise(ok=>{const i=new Image();i.onload=()=>ok(i);i.src=src;});
+async function setup(){
+  if(CARDS.length) return;
+  CARDS=(await (await fetch('../data/cards.json')).json()).cards; Dots.setCodes(CARDS);
+  IDS=[...CARDS.map(c=>c.id),'warp'];
+  await CardMatcher.load(IDS,'../cards/');
+  for(const id of IDS) imgs[id]=await loadImg(`../cards/${id}.jpg`);
+}
+const same=(a,b)=>a&&b&&a.every((v,i)=>v===b[i]);
+
+document.getElementById('a').onclick=async()=>{
+  out.textContent=''; await setup(); let ok=0,okK=0,n=0; const bad=[];
+  for(const c of CARDS){ const im=imgs[c.id], N=im.width; for(const rot of [0,1,2,3]){ n++;
+    const cv=document.createElement('canvas'); cv.width=cv.height=N; const x=cv.getContext('2d'); x.translate(N/2,N/2); x.rotate(rot*Math.PI/2); x.drawImage(im,-N/2,-N/2);
+    const get=Dots.getter(x.getImageData(0,0,N,N).data,N);
+    // 画像を rot×90° 回したので、読むときは向き rot で元に戻るはず
+    const r=Dots.readAnyOrientation(k=>Dots.rotate(get,k),N);
+    if(same(r.code,c.dots)) ok++; else bad.push(`${c.id} ${c.name} 回転${rot}: ${r.code} (正解${c.dots}) conf${r.conf.toFixed(2)}`);
+    if(r.k===rot) okK++; } }
+  log(`見本（4つの向き） 点の数が正しい ${ok}/${n}  向きが正しい ${okK}/${n}\n`+bad.join('\n'));
+};
+
+function scene(img){
+  const S=1080, c=document.createElement('canvas'); c.width=c.height=S; const x=c.getContext('2d');
+  const bg=[[150,110,70],[90,90,95],[230,225,215],[60,45,35],[200,190,170]][Math.floor(Math.random()*5)];
+  x.fillStyle=`rgb(${bg})`; x.fillRect(0,0,S,S);
+  for(let k=0;k<60;k++){x.fillStyle=`rgba(${Math.random()<.5?'0,0,0':'255,255,255'},${R(0,.08)})`;x.fillRect(R(0,S),R(0,S),R(25,500),R(5,75));}
+  const guide=S*120/144, sz=guide*R(.82,1.15);
+  x.save(); x.translate(S/2+R(-.09,.09)*guide,S/2+R(-.09,.09)*guide); x.rotate(R(-9,9)*Math.PI/180+(Math.random()<.5?Math.PI:0));
+  x.beginPath();x.roundRect(-sz/2,-sz/2,sz,sz,sz*.04);x.clip(); x.drawImage(img,-sz/2,-sz/2,sz,sz); x.restore();
+  const br=R(.45,1.35), warm=R(-.2,.2), blur=R(0,1.6), shade=R(0,.35), gx=R(0,1), gx2=R(0,1);
+  const make=n=>{ const o=document.createElement('canvas'); o.width=o.height=n; const g2=o.getContext('2d',{willReadFrequently:true});
+    g2.filter=`blur(${blur*n/144*0.5}px)`; g2.drawImage(c,0,0,n,n); g2.filter='none';
+    const g=g2.createLinearGradient(gx*n,0,gx2*n,n); g.addColorStop(0,`rgba(0,0,0,${shade})`); g.addColorStop(1,'rgba(0,0,0,0)'); g2.fillStyle=g; g2.fillRect(0,0,n,n);
+    const d=g2.getImageData(0,0,n,n), p=d.data;
+    for(let i=0;i<p.length;i+=4){p[i]=p[i]*br*(1+warm)+R(-16,16);p[i+1]=p[i+1]*br+R(-16,16);p[i+2]=p[i+2]*br*(1-warm)+R(-16,16);}
+    return d.data; };
+  return {lo:make(144), hi:make(480)};
+}
+document.getElementById('b').onclick=async()=>{
+  out.textContent=''; await setup(); const N=4; let a0=0,a1=0,tot=0,rd=0,rdOk=0;
+  for(const id of IDS){ for(let k=0;k<N;k++){ const s=scene(imgs[id]); tot++;
+    const list=CardMatcher.rank(s.lo,144,144,120); if(list[0].id===id)a0++;
+    const top=list[0], raw=Dots.getter(s.hi,480);
+    const get=(u,v,o)=>{ if(top.rot){u=1-u;v=1-v;} raw(top.x0+u*top.size, top.y0+v*top.size, o); };
+    const st=Dots.readAnyOrientation(kk=>Dots.rotate(get,kk), top.size*480);
+    if(st.conf>0.55&&st.quality>=35&&id!=='warp'){rd++; if(same(st.code,Dots.codeOf(id))) rdOk++;}
+    if(Dots.rerank(list,st)[0].id===id) a1++;
+  } out.textContent=`…${tot}`; await new Promise(r=>setTimeout(r)); }
+  out.textContent=`1枚ずつ（きびしめ） ${tot}回\n模様だけ 1位正解 ${(a0/tot*100).toFixed(1)}%\n点もつかう 1位正解 ${(a1/tot*100).toFixed(1)}%\n点を読めた ${rd}回（そのうち数が正しい ${rdOk}）`;
+};
+
+async function tablePhoto(W, ids, color, opt={}){
+  const H=Math.round(W*0.75), c=document.createElement('canvas'); c.width=W; c.height=H; const x=c.getContext('2d');
+  x.fillStyle=`rgb(${[R(200,230),R(175,200),R(130,160)]})`; x.fillRect(0,0,W,H);
+  for(let k=0;k<400;k++){x.fillStyle=`rgba(120,90,50,${R(0,.06)})`; x.fillRect(0,R(0,H),W,R(1,W/200));}
+  const cols=6, side=W/cols*0.78, r=side/6.4, truth=[];
+  ids.forEach((id,i)=>{ const cx=(i%cols+0.5)*W/cols+R(-.04,.04)*side, cy=H/2+((i/cols|0)-0.5)*side*1.22+R(-.04,.04)*side;
+    const ang=R(-12,12)*Math.PI/180+(opt.anyRot?Math.floor(R(0,4))*Math.PI/2:0);
+    x.save(); x.translate(cx,cy); x.rotate(ang); x.beginPath(); x.roundRect(-side/2,-side/2,side,side,side*.03); x.clip(); x.drawImage(imgs[id],-side/2,-side/2,side,side); x.restore();
+    const sx=cx+R(-.1,.1)*side, sy=cy+R(-.1,.1)*side, n=i+1, paper=side*0.40;
+    x.save(); x.translate(sx,sy); x.rotate(R(-35,35)*Math.PI/180); x.fillStyle='#f6f5f1'; x.beginPath(); x.roundRect(-paper/2,-paper/2,paper,paper,paper*.12); x.fill(); x.restore();
+    x.fillStyle=color; x.beginPath(); x.arc(sx,sy,r,0,7); x.fill();
+    x.fillStyle='#fff'; x.font=`400 ${r*0.91}px "M PLUS Rounded 1c"`; x.textAlign='center'; x.textBaseline='middle';
+    x.save(); x.translate(sx,sy); x.rotate(R(-15,15)*Math.PI/180); if(n>=10) x.scale(0.88,1); x.fillText(String(n),0,r*0.05); x.restore();
+    truth.push({id,n,sx,sy}); });
+  const o=document.createElement('canvas'); o.width=W; o.height=H; const g=o.getContext('2d');
+  g.filter=`blur(${R(0.3,1.0)*W/2000}px)`; g.drawImage(c,0,0); g.filter='none';
+  const sh=g.createLinearGradient(0,0,W,H); sh.addColorStop(0,`rgba(0,0,0,${R(0,.25)})`); sh.addColorStop(1,'rgba(0,0,0,0)'); g.fillStyle=sh; g.fillRect(0,0,W,H);
+  const d=g.getImageData(0,0,W,H), p=d.data, cast=[R(.88,1.08),1,R(.88,1.15)], br=R(.75,1.05);
+  for(let i=0;i<p.length;i+=4){const nz=R(-8,8); p[i]=p[i]*br*cast[0]+nz; p[i+1]=p[i+1]*br+nz; p[i+2]=p[i+2]*br*cast[2]+nz;}
+  g.putImageData(d,0,0);
+  return {blob:await new Promise(ok=>o.toBlob(ok,'image/jpeg',0.88)), truth, canvas:o};
+}
+document.getElementById('c').onclick=async()=>{
+  out.textContent=''; await setup(); await document.fonts.load('400 40px "M PLUS Rounded 1c"','0123456789');
+  const colors=['#2f8fdc','#222','#e0609a','#2e9a4a'];
+  for(const W of [2400,3200,4032]) for(const anyRot of [false,true]){
+    let n=0,f=0,num=0,a0=0,a1=0,rd=0,rdOk=0;
+    for(let rep=0;rep<3;rep++){
+      const pool=CARDS.map(c=>c.id).sort(()=>Math.random()-.5).slice(0,12);
+      const ph=await tablePhoto(W,pool,colors[rep%4],{anyRot});
+      const res=await PhotoReader.read(new File([ph.blob],'t.jpg',{type:'image/jpeg'}));
+      for(const t of ph.truth){ n++; const sc=res.canvas.width/W;
+        const it=res.items.find(it=>Math.hypot(it.stamp.cx-t.sx*sc,it.stamp.cy-t.sy*sc)<it.stamp.r*1.5); if(!it) continue; f++;
+        if(it.number.num===t.n) num++;
+        if(it.cands[0].id===t.id) a1++;
+        const st=it.dots; if(st&&st.conf>0.55&&st.quality>=35){rd++; if(same(st.code,Dots.codeOf(t.id))) rdOk++;}
+        const plain=it.cands.map(c=>({...c,d:c.d-(c.dotMiss||0)*1.5*(st?st.conf:0)})).sort((a,b)=>a.d-b.d);
+        if(plain[0].id===t.id) a0++;
+      }
+      if(rep===0&&W===4032&&!anyRot){ const v=document.getElementById('view'); v.width=res.canvas.width; v.height=res.canvas.height; v.getContext('2d').drawImage(res.canvas,0,0); }
+      await new Promise(r=>setTimeout(r));
+    }
+    log(`幅 ${W}px（カード ${(W/6*0.78)|0}px${anyRot?'・向きばらばら':''}）: スタンプ ${f}/${n} 数字 ${num} カード1位 模様だけ ${a0} → 点も ${a1}   点を読めた ${rd}（正しい ${rdOk}）`);
+  }
+  log('おわり');
+};
+</script></body></html>

@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>写真まとめ読みテスト</title>
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400&text=0123456789&display=swap" rel="stylesheet">
+<style>body{font-family:sans-serif;margin:12px;background:#f6ecd6;color:#222}#view{max-width:100%;border:1px solid #999}table{border-collapse:collapse;font-size:13px}td{border:1px solid #ccc;padding:3px 6px;vertical-align:middle}canvas.crop{width:80px}</style>
+</head><body>
+<h1>写真まとめ読みテスト（開発用）</h1>
+<p><input type="file" id="file" accept="image/*"> <button class="smp" data-f="table1.jpg">見本1</button> <button class="smp" data-f="table2.jpg">見本2</button> <button class="smp" data-f="table3.jpg">見本3</button></p>
+<pre id="log"></pre>
+<canvas id="view"></canvas>
+<table id="tbl"></table>
+<script src="../matcher.js"></script><script src="../dots.js"></script>
+<script src="../photoreader.js"></script>
+<script>
+let NAMES={};
+const log=t=>document.getElementById('log').textContent+=t+'\n';
+async function run(src){
+  document.getElementById('log').textContent='';
+  if(!CardMatcher.templates.length){
+    const d=await (await fetch('../data/cards.json')).json(); d.cards.forEach(c=>NAMES[c.id]=c.name+'('+c.points+')'); Dots.setCodes(d.cards);
+    await CardMatcher.load([...d.cards.map(c=>c.id),'warp'],'../cards/');
+  }
+  const t0=performance.now();
+  const res=await PhotoReader.read(src,s=>log(s));
+  log(`時間 ${(performance.now()-t0).toFixed(0)}ms  画像 ${res.canvas.width}x${res.canvas.height}  机の色 ${res.table.map(v=>v|0)}  スタンプ ${res.items.length}`);
+  const v=document.getElementById('view'); v.width=res.canvas.width; v.height=res.canvas.height;
+  const x=v.getContext('2d'); x.drawImage(res.canvas,0,0); x.lineWidth=2; x.font='bold 16px sans-serif';
+  const tbl=document.getElementById('tbl'); tbl.innerHTML='<tr><td>#</td><td>切り抜き</td><td>色</td><td>数字</td><td>カード候補</td><td>距離/差</td></tr>';
+  res.items.sort((a,b)=>a.number.num-b.number.num).forEach((it,i)=>{
+    const c=it.card, s=it.stamp;
+    x.save(); x.translate(c.cx,c.cy); x.rotate(c.angle); x.strokeStyle=c.guessed?'orange':'lime'; x.strokeRect(-c.side/2,-c.side/2,c.side,c.side); x.restore();
+    x.strokeStyle='red'; x.beginPath(); x.arc(s.cx,s.cy,s.r,0,7); x.stroke();
+    x.fillStyle='yellow'; x.strokeStyle='black'; x.lineWidth=3; const lab=`${it.number.num}`; x.strokeText(lab,s.cx+s.r+2,s.cy-s.r); x.fillText(lab,s.cx+s.r+2,s.cy-s.r); x.lineWidth=2;
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${i+1}</td><td></td><td>${s.color}</td><td><b>${it.number.num}</b> (${it.number.score.toFixed(2)}, 差${it.number.margin.toFixed(2)}, 次:${it.number.alts.join(',')})</td><td>${it.cands.slice(0,3).map(e=>e.id+':'+(NAMES[e.id]||e.id)).join('<br>')}</td><td>${it.d.toFixed(2)} / ${it.margin.toFixed(2)}</td>`;
+    it.crop.className='crop'; tr.children[1].appendChild(it.crop);
+    const img=new Image(); img.src='../cards/'+it.id+'.jpg'; img.style.width='80px'; tr.children[1].appendChild(img);
+    tbl.appendChild(tr);
+  });
+  window.lastRes=res;
+}
+document.querySelectorAll('.smp').forEach(b=>b.onclick=()=>run('samples/'+b.dataset.f));
+document.getElementById('file').onchange=e=>run(e.target.files[0]);
+</script></body></html>
+<script>
+// 正解（開発用）：写真ごとのスタンプ位置と数字
+const TRUTH={
+ 'table1.jpg':{color:'blue',pts:[[353,343,2],[449,333,3],[532,323,4],[619,323,5],[683,326,6],[360,441,7],[457,418,8],[547,421,9],[617,390,10],[709,412,11],[803,395,12]]},
+ 'table2.jpg':{color:'black',pts:[[222,287,2],[350,269,3],[482,310,5],[630,314,6],[724,310,7],[902,298,8]]},
+ 'table3.jpg':{color:'pink',pts:[[453,103,3],[438,234,4],[441,350,5],[440,444,6],[433,539,7],[436,629,8],[438,710,9],[434,800,11],[440,858,12]]},
+};
+async function evalAll(){
+  let found=0,total=0,correct=0; const lines=[];
+  for(const [f,t] of Object.entries(TRUTH)){
+    const res=await PhotoReader.read('samples/'+f);
+    for(const [x,y,n] of t.pts){ total++; const it=res.items.find(it=>Math.hypot(it.stamp.cx-x,it.stamp.cy-y)<14); if(it){found++; if(it.number.num===n) correct++; else lines.push(`${f} ${n}→${it.number.num}`);} else lines.push(`${f} ${n} 見つからない`); }
+  }
+  return `見つけた ${found}/${total}  数字正解 ${correct}/${total}\n`+lines.join('\n');
+}
+</script>
+<script>
+const CARD_TRUTH={'table2.jpg':[[222,287,32],[350,269,35],[482,310,21],[630,314,10],[724,310,4],[902,298,26]],'table3.jpg':[[453,103,45],[438,710,36]],'table1.jpg':[[619,323,24],[547,421,49],[360,441,9]]};
+async function evalCards(){
+  let t1=0,t3=0,n=0; const miss=[];
+  for(const [f,pts] of Object.entries(CARD_TRUTH)){ const res=await PhotoReader.read('samples/'+f);
+    for(const [x,y,id] of pts){ n++; const it=res.items.find(it=>Math.hypot(it.stamp.cx-x,it.stamp.cy-y)<14); if(!it){miss.push(f+' '+id+' no stamp');continue;} const pos=it.cands.findIndex(c=>c.id===id); if(pos===0)t1++; if(pos>=0&&pos<3)t3++; if(pos!==0) miss.push(`${f} ${NAMES[id]} → ${NAMES[it.cands[0].id]||it.cands[0].id} (正解は${pos<0?'5位外':pos+1+'位'})`); } }
+  return `カード 1位 ${t1}/${n}  3位以内 ${t3}/${n}\n`+miss.join('\n');
+}
+</script>
