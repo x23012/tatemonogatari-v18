@@ -247,15 +247,18 @@ VIEWS.card = id => {
   };
 };
 
-/** 「どんな旅か」の箱（tabi.js の定型文から作る）。short: 名前だけ */
+/** 「どんな旅か」の箱。tripText.js（trip_text.json のテーマと文の部品）で、カードの組み合わせからタイトルと本文を作る。
+ * short: タイトルだけ（写真の確認画面用） */
+let TRIP = null;
 function tabiBox(items, short) {
-  if (typeof Tabi === 'undefined') return '';
-  const t = Tabi.make(items);
+  if (typeof TripText === 'undefined' || !TRIP) return '';
+  const ids = items.map(x => x.card && x.card.id).filter(id => typeof id === 'number');
+  const t = TripText.describeTrip(ids, TRIP, { cards: CARDS });
   if (!t) return '';
   return `<section class="tabi">
     <p class="tabi-label">${R('あなたの{旅|たび}')}</p>
-    <h3 class="tabi-title">${R(t.title)}</h3>
-    ${short ? '' : `<ul class="tabi-lines">${t.lines.map(l => `<li>${R(l)}</li>`).join('')}</ul>`}
+    <h3 class="tabi-title">${esc(t.title)}</h3>
+    ${short ? '' : `<p class="tabi-text">${esc(t.text)}</p>`}
   </section>`;
 }
 
@@ -798,6 +801,7 @@ async function init() {
   try {
     const res = await fetch('data/cards.json');
     CARDS = (await res.json()).cards;
+    try { TRIP = await (await fetch('data/trip_text.json')).json(); } catch { TRIP = null; }   // 旅の文（なくてもアプリは動く）
   } catch {
     $('#main').innerHTML = `<div class="empty"><p>データを読みこめませんでした。電波を確かめて、もう一度開いてください。</p></div>`; return;
   }

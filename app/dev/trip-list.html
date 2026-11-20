@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>旅の文の一覧</title>
+<link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f6ecd6;--paper:#fffaf0;--ink:#222;--ink-2:#5a5248;--line:#e2d4b4;--accent:#8a1c24}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"BIZ UDPGothic","Hiragino Kaku Gothic ProN",sans-serif;line-height:1.7}
+.wrap{max-width:1200px;margin:0 auto;padding:16px}
+h1{font-size:24px;margin:8px 0 4px} h2{font-size:20px;margin:20px 0 6px}
+.lead{color:var(--ink-2);margin:0 0 12px}
+table{width:100%;border-collapse:collapse;background:var(--paper);font-size:14px}
+th,td{border:1px solid var(--line);padding:6px 8px;vertical-align:top;text-align:left}
+th{background:#efe3c4;position:sticky;top:0}
+td.lab{font-weight:700;color:var(--accent);white-space:nowrap}
+.kind{display:inline-block;font-size:12px;border:1px solid var(--ink-2);border-radius:999px;padding:0 6px;color:var(--ink-2);font-weight:400}
+.cards{color:var(--ink-2)}
+ul{margin:0;padding-left:1.1em}
+.ph{background:#fde7b0;border-radius:4px;padding:0 3px;font-weight:700}
+.try{background:var(--paper);border:2px solid var(--ink);border-radius:14px;padding:12px 16px;margin:16px 0}
+@media (max-width:700px){table{font-size:13px}td.lab{white-space:normal}}
+</style></head><body><div class="wrap">
+<h1>旅の文の一覧</h1>
+<p class="lead">アプリの「あなたの旅」は、<code>data/trip_text.json</code> のテーマと文の部品から、<code>tripText.js</code> が組み立てます（このページは trip_text.json の中身をそのまま表示）。<span class="ph">黄色</span>の所には、カードの名前などが入ります。</p>
+<div id="out"></div>
+<div class="try"><b>ためしに作る</b>：カードの番号をカンマで区切って入れてください（例：29,22,34）<br>
+<input id="ids" style="width:100%;font-size:16px;padding:6px;margin:6px 0" value="29,22,34"><div id="res"></div></div>
+</div>
+<script src="../tripText.js"></script>
+<script>
+const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const ph=s=>esc(s).replace(/\{(\w+)\}/g,'<span class="ph">$1</span>');
+const PH={names:'カードの名前（点数の高い2枚）',nado:'3枚以上なら「など」',subs:'サブのテーマの一文',old:'いちばん古い時代',new:'いちばん新しい時代',k:'時代の数',name:'カードの名前',catch:'カードのひとこと',labels:'テーマの名前'};
+(async()=>{
+  const [T,C]=await Promise.all([fetch('../data/trip_text.json').then(r=>r.json()),fetch('../data/cards.json').then(r=>r.json())]);
+  const name=id=>(C.cards.find(c=>c.id===id)||{}).name||id;
+  const tp=T.templates, h=[];
+  h.push(`<p>テーマ ${T.themes.length} こ（物語のテーマ ${T.themes.filter(t=>t.kind==='story').length}・特ちょうのテーマ ${T.themes.filter(t=>t.kind==='attr').length}）、版 ${esc(T.version)}</p>`);
+  h.push('<h2>テーマ</h2><p class="lead">点の高い（その組み合わせがめずらしい）テーマが「メイン」になり、タイトルと書き出しに使われます。ほかのテーマは「とちゅうでは、〜ます。」の部分に入ります。</p>');
+  h.push('<table><tr><th>テーマ</th><th>あてはまるカード</th><th>条件</th><th>タイトル</th><th>書き出し</th><th>とちゅうの文</th></tr>');
+  for(const t of T.themes){
+    const req=[`${t.min_count}枚以上`].concat((t.requires||[]).map(r=>`${r.cards.map(name).join('・')} から${r.min}枚以上`)).join('<br>');
+    h.push(`<tr><td class="lab">${esc(t.label)}<br><span class="kind">${t.kind==='story'?'物語':'特ちょう'}</span> <span class="kind">重さ ${t.weight}</span></td><td class="cards">${t.cards.map(name).map(esc).join('、')}</td><td>${req}</td><td><ul>${t.title.map(x=>`<li>${ph(x)}</li>`).join('')}</ul></td><td><ul>${t.lead.map(x=>`<li>${ph(x)}</li>`).join('')}</ul></td><td><ul>${t.sub.map(x=>`<li>${ph(x)}…</li>`).join('')}</ul></td></tr>`);
+  }
+  h.push('</table>');
+  h.push('<h2>共通の文の部品</h2><table><tr><th>部品</th><th>使われる場面</th><th>文</th></tr>');
+  const WHEN={names:'メインのテーマのカードの名前',subs:'サブのテーマ（2つまで）',span:'時代が2つにまたがるとき（3枚以上）',span_many:'時代が3つ以上にまたがるとき',one_title:'カードが1枚のときのタイトル',one_lead:'カードが1枚のときの本文',mix_title:'目立つテーマがない／12枚以上のときのタイトル',mix_lead:'同じときの本文',few_title:'4枚以下でばらばらのときのタイトル',few_lead:'同じときの本文',all_title:'47枚ぜんぶのときのタイトル',all_lead:'同じときの本文'};
+  for(const [k,v] of Object.entries(tp)) h.push(`<tr><td class="lab">${k}</td><td>${WHEN[k]||''}</td><td><ul>${[].concat(v).map(x=>`<li>${ph(x)}</li>`).join('')}</ul></td></tr>`);
+  h.push('</table><h2>黄色の所に入るもの</h2><table>'+Object.entries(PH).map(([k,v])=>`<tr><td class="lab"><span class="ph">${k}</span></td><td>${v}</td></tr>`).join('')+'</table>');
+  document.getElementById('out').innerHTML=h.join('');
+  const run=()=>{ const ids=document.getElementById('ids').value.split(/[,、\s]+/).map(Number).filter(n=>!isNaN(n)); const r=TripText.describeTrip(ids,T,C);
+    document.getElementById('res').innerHTML=r?`<b>${esc(r.title)}</b><br>${esc(r.text)}<br><span class="cards">メイン：${r.main?esc(r.main.label):'なし'}／サブ：${(r.subs||[]).map(s=>esc(s.label)).join('、')||'なし'}</span>`:'（カードがありません）'; };
+  document.getElementById('ids').oninput=run; run();
+})();
+</script></body></html>
