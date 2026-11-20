@@ -431,7 +431,16 @@ const PhotoReader = (() => {
       const v = chooseView(list);
       list.forEach(it => Object.assign(it.number, pickView(it.number, v)));
     }
-    const kept = items.filter(it => it.number.score > 0.18);
+    // 点数のマーク（例：1てんの緑の四角）がスタンプと同じ色だと、まちがえて拾うことがある。
+    // スタンプの丸はみな同じ大きさなので、同じ色のほかのスタンプよりずっと小さく、
+    // しかもまわりが白い紙でない・数字が読みにくいものはのぞく
+    const smallFake = it => {
+      const same = items.filter(o => o.stamp.color === it.stamp.color && o !== it).map(o => o.stamp.r).sort((a, b) => a - b);
+      if (same.length < 2) return false;
+      const med = same[same.length >> 1];
+      return it.stamp.r < med * 0.72 && (it.stamp.white < 0.5 || it.number.score < 0.75);
+    };
+    const kept = items.filter(it => it.number.score > 0.18 && !smallFake(it));
     assignNumbers(kept);
     return { canvas, items: kept, table };
   }
