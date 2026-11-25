@@ -440,3 +440,9 @@ p { margin: 8px 0; }
 .zk-online .btn { width: 100%; }
 .zk-pn { display: flex; justify-content: space-between; gap: 10px; margin: 18px 0 8px; }
 .zk-pn .btn { max-width: 48%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+.zk-swipe { text-align: center; font-size: 13px; color: var(--ink-2); margin: 4px 0 12px; }
+#main.slide-next { animation: slideNext .22s ease-out; }
+#main.slide-prev { animation: slidePrev .22s ease-out; }
+@keyframes slideNext { from { transform: translateX(40px); opacity: .3; } to { transform: none; opacity: 1; } }
+@keyframes slidePrev { from { transform: translateX(-40px); opacity: .3; } to { transform: none; opacity: 1; } }
+html, body { overflow-x: clip; }   /* スライドの動きで横にはみ出しても、横スクロールを出さない */

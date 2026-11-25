@@ -1,5 +1,5 @@
 /* オフラインでも開けるようにする。データや写真を変えたら VERSION を上げる */
-const VERSION = 'tatemono-v18-14';
+const VERSION = 'tatemono-v18-15';
 const SHELL = ['./', 'index.html', 'style.css', 'app.js', 'matcher.js', 'dots.js', 'photoreader.js', 'tripText.js', 'data/cards.json', 'data/trip_text.json', 'data/card_more.json', 'manifest.webmanifest', 'icon.svg', 'icon-192.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));

@@ -318,9 +318,10 @@ function zukanDetail(id) {
       <a class="btn blue" href="${searchUrl(c)}" target="_blank" rel="noopener"><span class="ico">📍</span>${R('{地図|ちず}で{見|み}る')}</a>
     </div>
     <nav class="zk-pn" aria-label="となりのカード">
-      ${prev ? `<a class="btn small" href="#/zukan/${prev.id}">‹ ${esc(prev.name)}</a>` : '<span></span>'}
-      ${next ? `<a class="btn small" href="#/zukan/${next.id}">${esc(next.name)} ›</a>` : '<span></span>'}
+      ${prev ? `<button class="btn small" type="button" data-act="zgo" data-id="${prev.id}" data-dir="prev">‹ ${esc(prev.name)}</button>` : '<span></span>'}
+      ${next ? `<button class="btn small" type="button" data-act="zgo" data-id="${next.id}" data-dir="next">${esc(next.name)} ›</button>` : '<span></span>'}
     </nav>
+    <p class="zk-swipe">${i + 1} / ${CARDS.length}　・　${R('{左右|さゆう}にスライドすると、となりの{文化財|ぶんかざい}へ')}</p>
     <p class="muted" style="font-size:13px">${R('「もう{少|すこ}しくわしく」「{見|み}どころ」は、{文化遺産|ぶんかいさん}オンライン（{文化庁|ぶんかちょう}）の{解説|かいせつ}をもとに、みじかくまとめたものです。')}</p>`,
   };
 }
@@ -740,6 +741,7 @@ const ACT = {
   back() { if (navStack.length > 1) history.back(); else location.hash = '#/'; },
   jump(el) { const t = document.getElementById(el.dataset.to); if (t) { t.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); t.querySelector('h2').focus({ preventScroll: true }); } },
   detail(el) { location.hash = `#/card/${el.dataset.id}`; },
+  zgo(el) { zukanGo(Number(el.dataset.id), el.dataset.dir); },
   zcat(el) { S.zcat = el.dataset.v; document.querySelectorAll('[data-act=zcat]').forEach(b => b.setAttribute('aria-pressed', b === el)); renderZukan(); },
   cat(el) { S.cat = el.dataset.v; document.querySelectorAll('[data-act=cat]').forEach(b => b.setAttribute('aria-pressed', b === el)); renderList(); },
   pts(el) { S.pts = Number(el.dataset.v); document.querySelectorAll('[data-act=pts]').forEach(b => b.setAttribute('aria-pressed', b === el)); renderList(); },
@@ -811,10 +813,40 @@ document.addEventListener('change', e => {
   const el = e.target.closest('input[data-act]'); if (el && ACT[el.dataset.act]) ACT[el.dataset.act](el);
 });
 const navStack = [location.hash];
+let navReplace = false;   // 図鑑でとなりへ移るときは、履歴を積まない（「もどる」で一覧へもどれるように）
 window.addEventListener('hashchange', () => {
-  if (navStack.length > 1 && navStack[navStack.length - 2] === location.hash) navStack.pop(); else navStack.push(location.hash);
+  if (navReplace) { navStack[navStack.length - 1] = location.hash; navReplace = false; }
+  else if (navStack.length > 1 && navStack[navStack.length - 2] === location.hash) navStack.pop(); else navStack.push(location.hash);
   router();
 });
+
+/* ---------- 図鑑：左右にスライドして、となりの文化財へ ---------- */
+function zukanGo(id, dir) {
+  if (!BYID.has(id)) return;
+  navReplace = true;
+  location.replace(`#/zukan/${id}`);
+  const m = $('#main');
+  if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    m.classList.remove('slide-next', 'slide-prev'); void m.offsetWidth; m.classList.add(dir === 'prev' ? 'slide-prev' : 'slide-next');
+  }
+}
+(() => {
+  let x0 = null, y0 = 0, t0 = 0;
+  const onDetail = () => /^#\/zukan\/\d+$/.test(location.hash);
+  document.addEventListener('touchstart', e => {
+    if (!onDetail() || e.touches.length !== 1 || e.target.closest('input, textarea, select')) { x0 = null; return; }
+    x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; t0 = Date.now();
+  }, { passive: true });
+  document.addEventListener('touchend', e => {
+    if (x0 === null || !onDetail()) return;
+    const t = e.changedTouches[0], dx = t.clientX - x0, dy = t.clientY - y0;
+    x0 = null;
+    if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5 || Date.now() - t0 > 900) return;   // たてのスクロールや、ゆっくりした動きは無視
+    const i = CARDS.findIndex(c => c.id === Number(location.hash.split('/')[2]));
+    const to = CARDS[i + (dx < 0 ? 1 : -1)];   // 左へ払う＝つぎ、右へ払う＝まえ
+    if (to) zukanGo(to.id, dx < 0 ? 'next' : 'prev');
+  }, { passive: true });
+})();
 
 /* ---------- カメラでカードを読む ---------- */
 // 点数の色と写真の模様で見分け、四すみの点で確かめる（matcher.js, dots.js）。QRが印刷されたカードは、使える端末ではQRでも読む
