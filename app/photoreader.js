@@ -7,6 +7,9 @@
 
 const PhotoReader = (() => {
   const WORK = 1600;   // 処理する画像の長い辺(px)
+  // ワープ（ほぼ無地）は、写りの悪いカードとまちがえやすいので、少しだけ選ばれにくくする。
+  // 0.6 だとワープ自身を読み落とした。0.4 は、試験用写真6枚のワープ6/6・ほかをワープとまちがえ0、実写真3枚でワープとまちがえ1/32（0.6 と同じ）
+  const OPT = { warpPenalty: 0.4 };
 
   /* ---------- 画像の準備 ---------- */
   async function loadImage(file) {
@@ -362,7 +365,7 @@ const PhotoReader = (() => {
       for (const r of CardMatcher.compareRaw(raw)) results.push({ ...r, k, scale, cx, cy, side, angle0: card.angle });
     }
     const best = new Map();
-    for (const r of results) { if (r.id === 'warp') r.d += 0.6; const cur = best.get(r.id); if (!cur || r.d < cur.d) best.set(r.id, r); }
+    for (const r of results) { if (r.id === 'warp') r.d += OPT.warpPenalty; const cur = best.get(r.id); if (!cur || r.d < cur.d) best.set(r.id, r); }
     return [...best.values()].sort((a, b) => a.d - b.d);
   }
 
@@ -496,5 +499,5 @@ const PhotoReader = (() => {
 
   const setPaperFromTable = t => { paperV = Math.max(0.8, Math.max(...t) / 255 + 0.06); };
   const setDigitFont = f => { DIGIT_FONT = { ...DIGIT_FONT, ...f }; digitTemplates = null; };
-  return { read, readDots, setDigitFont, setPaperFromTable, findStamps, readNumber, findCard, identify, loadImage, toCanvas, hsv, tableColor, cropCard };
+  return { OPT, read, readDots, setDigitFont, setPaperFromTable, findStamps, readNumber, findCard, identify, loadImage, toCanvas, hsv, tableColor, cropCard };
 })();
