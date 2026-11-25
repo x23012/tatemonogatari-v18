@@ -158,6 +158,7 @@ VIEWS.home = () => {
       <a class="btn primary" href="#/photo"><span class="ico">🗓️</span>${R('{写真|しゃしん}1まいで まとめて{読|よ}む')}</a>
       <a class="btn" href="#/scan"><span class="ico">📷</span>${R('カードをカメラで{読|よ}む')}</a>
       <a class="btn" href="#/select"><span class="ico">🃏</span>${R('{一覧|いちらん}から{選|えら}ぶ')}</a>
+      <a class="btn" href="#/zukan"><span class="ico">📖</span>${R('カード{図鑑|ずかん}（{見|み}るだけ）')}</a>
       <a class="btn" href="#/saved"><span class="ico">🔖</span>${R('{保存|ほぞん}したルート')}${S.saved.length ? `（${S.saved.length}）` : ''}</a>
       <a class="btn" href="#/rules"><span class="ico">🎲</span>${R('{遊|あそ}び{方|かた}')}</a>
       <a class="btn" href="#/help"><span class="ico">❓</span>${R('アプリの{使|つか}い{方|かた}')}</a>
@@ -244,10 +245,86 @@ VIEWS.card = id => {
     <div class="stack">
       <button class="btn ${on ? '' : 'primary'}" data-act="toggleDetail" data-id="${c.id}">${on ? R('ルートからはずす') : R('ルートに{入|い}れる')}</button>
       <a class="btn blue" href="${searchUrl(c)}" target="_blank" rel="noopener"><span class="ico">📍</span>${R('{地図|ちず}で{見|み}る')}</a>
+      <a class="btn ghost" href="#/zukan/${c.id}"><span class="ico">📖</span>${R('{図鑑|ずかん}で もう{少|すこ}しくわしく{見|み}る')}</a>
       ${c.heritage_url ? `<a class="btn ghost" href="${esc(c.heritage_url)}" target="_blank" rel="noopener"><span class="ico">🏛️</span>${R('{文化遺産|ぶんかいさん}オンラインで{見|み}る')}</a>` : ''}
     </div>`,
   };
 };
+
+/* ---------- カード図鑑（見るだけ） ---------- */
+let MORE = {};   // data/card_more.json：文化遺産オンラインの解説をもとにした、カードより少しくわしい情報
+VIEWS.zukan = id => (id !== undefined && id !== '' ? zukanDetail(id) : zukanList());
+
+function zukanList() {
+  const cats = [['', 'すべて'], ['国宝', '国宝'], ['重要文化財', '重要文化財'], ['登録有形文化財', '登録有形文化財']];
+  return {
+    title: R('カード{図鑑|ずかん}'), back: false,
+    html: `
+    <p class="muted" style="margin-top:0">${R('{気|き}になった{建物|たてもの}をおすと、カードより{少|すこ}しくわしい{話|はなし}と、{文化遺産|ぶんかいさん}オンラインへのリンクが{見|み}られるよ。')}</p>
+    <label class="sr" for="zq">さがす</label>
+    <input class="search" id="zq" type="search" placeholder="名前や 市・町で さがす（れい：岡崎）" value="${esc(S.zq || '')}" autocomplete="off">
+    <div class="chips" role="group" aria-label="区分">${cats.map(([v, l]) => `<button class="chip" data-act="zcat" data-v="${v}" aria-pressed="${(S.zcat || '') === v}">${l}</button>`).join('')}</div>
+    <p class="count" id="zcount"></p>
+    <ul class="zk-grid" id="zlist"></ul>`,
+    after() {
+      $('#zq').addEventListener('input', e => { S.zq = e.target.value; renderZukan(); });
+      renderZukan();
+    },
+  };
+}
+function renderZukan() {
+  const q = (S.zq || '').trim().toLowerCase();
+  const list = CARDS.filter(c => (!S.zcat || c.category === S.zcat) &&
+    (!q || [c.name, c.name_kana, c.city, c.other_name, c.official_name].some(v => String(v || '').toLowerCase().includes(q))));
+  $('#zlist').innerHTML = list.map(c => `<li><a class="zk" href="#/zukan/${c.id}" style="--c:${c.color}">
+      ${photo(c, 'zk-ph')}${pt(c)}
+      <span class="zk-nm">${R(c.name_ruby)}</span>
+      <span class="zk-sub">${esc(c.city)}</span>
+    </a></li>`).join('') || `<li class="empty">見つからなかったよ。ことばを かえてみてね。</li>`;
+  $('#zcount').textContent = `${list.length}まい`;
+}
+
+function zukanDetail(id) {
+  const c = BYID.get(Number(id));
+  if (!c) return VIEWS.notfound();
+  const m = MORE[c.id] || {};
+  const i = CARDS.indexOf(c), prev = CARDS[i - 1], next = CARDS[i + 1];
+  const fact = (k, v) => v ? `<dt>${k}</dt><dd>${esc(v)}</dd>` : '';
+  return {
+    title: R('カード{図鑑|ずかん}'), back: true,
+    html: `
+    ${photo(c, 'detail-photo')}
+    <div class="detail-head">${pt(c, true)}<div><span class="tag">${esc(c.category)}</span><h2>${R(c.name_ruby)}</h2></div></div>
+    ${c.other_name ? `<p class="alias">べつの名前：${esc(c.other_name)}</p>` : ''}
+    <p class="catch" style="--c:${c.color}">${esc(c.catchphrase)}</p>
+    <p>${esc(c.description)}</p>
+    ${m.more ? `<section class="zk-more"><h3>${R('もう{少|すこ}しくわしく')}</h3><p>${esc(m.more)}</p>
+      ${m.look && m.look.length ? `<h3>${R('{見|み}どころ')}</h3><ul class="zk-look">${m.look.map(t => `<li>${esc(t)}</li>`).join('')}</ul>` : ''}</section>` : ''}
+    <dl class="facts">
+      ${fact('建てた年', m.built)}
+      ${fact('つくった人', m.by)}
+      ${fact('時代', c.era)}
+      ${fact('使いみち', c.use)}
+      ${fact('つくり', c.structure)}
+      ${fact('ばしょ', m.address || `${c.city}（${c.region}）`)}
+      ${m.listed && m.listed.length ? `<dt>文化財に<br>なった日</dt><dd>${m.listed.map(esc).join('<br>')}</dd>` : ''}
+    </dl>
+    ${c.heritage_url ? `<section class="zk-online">
+      <h3>${R('もっと{知|し}りたいときは')}</h3>
+      <p>${R('{文化庁|ぶんかちょう}の「{文化遺産|ぶんかいさん}オンライン」に、{正式|せいしき}な{説明|せつめい}がのっているよ。')}</p>
+      <a class="btn primary" href="${esc(c.heritage_url)}" target="_blank" rel="noopener"><span class="ico">🏛️</span>${R('{文化遺産|ぶんかいさん}オンラインで{見|み}る')}</a>
+      <p class="zk-url"><a href="${esc(c.heritage_url)}" target="_blank" rel="noopener">${esc(c.heritage_url)}</a></p>
+    </section>` : ''}
+    <div class="stack">
+      <a class="btn blue" href="${searchUrl(c)}" target="_blank" rel="noopener"><span class="ico">📍</span>${R('{地図|ちず}で{見|み}る')}</a>
+    </div>
+    <nav class="zk-pn" aria-label="となりのカード">
+      ${prev ? `<a class="btn small" href="#/zukan/${prev.id}">‹ ${esc(prev.name)}</a>` : '<span></span>'}
+      ${next ? `<a class="btn small" href="#/zukan/${next.id}">${esc(next.name)} ›</a>` : '<span></span>'}
+    </nav>
+    <p class="muted" style="font-size:13px">${R('「もう{少|すこ}しくわしく」「{見|み}どころ」は、{文化遺産|ぶんかいさん}オンライン（{文化庁|ぶんかちょう}）の{解説|かいせつ}をもとに、みじかくまとめたものです。')}</p>`,
+  };
+}
 
 /** 「どんな旅か」の箱。tripText.js（trip_text.json のテーマと文の部品）で、カードの組み合わせからタイトルと本文を作る。
  * short: タイトルだけ（写真の確認画面用） */
@@ -550,7 +627,7 @@ VIEWS.help = () => {
   return {
     title: R('アプリの{使|つか}い{方|かた}'), back: true,
     html: `<div class="rules help">
-  <div class="box">${R('このアプリは、ゲームの{最後|さいご}に{持|も}っていたカードから、{本当|ほんとう}にめぐる{旅|たび}のルートを{作|つく}るよ。{画面|がめん}の{下|した}のボタン（ホーム・しゃしん・カード・ルート・ほぞん）で、どの{画面|がめん}からでも{移動|いどう}できるよ。{遊|あそ}び{方|かた}とこのページは、ホームから{開|ひら}けるよ。')}</div>
+  <div class="box">${R('このアプリは、ゲームの{最後|さいご}に{持|も}っていたカードから、{本当|ほんとう}にめぐる{旅|たび}のルートを{作|つく}るよ。{画面|がめん}の{下|した}のボタン（ホーム・しゃしん・ずかん・ルート・ほぞん）で、どの{画面|がめん}からでも{移動|いどう}できるよ。{遊|あそ}び{方|かた}とこのページは、ホームから{開|ひら}けるよ。')}</div>
   <nav class="help-toc" aria-label="もくじ"><b>${R('もくじ')}</b><ol>${HELP_TOC.map(([id, t]) => `<li><button type="button" data-act="jump" data-to="${id}">${R(t)}</button></li>`).join('')}</ol></nav>
 
   ${sec('h-flow', '🧭', `<ol class="help-steps">
@@ -598,6 +675,7 @@ VIEWS.help = () => {
     ${L('カードをおすと、{大|おお}きな{写真|しゃしん}、{名前|なまえ}、{点数|てんすう}、ひとこと、{説明|せつめい}、{場所|ばしょ}・{使|つか}いみち・つくりが{見|み}られる。')}
     ${L('「{地図|ちず}で{見|み}る」でGoogleマップ、「{文化遺産|ぶんかいさん}オンラインで{見|み}る」で、もっとくわしい{紹介|しょうかい}ページが{開|ひら}く。')}
     ${L('「ルートに{入|い}れる」「ルートからはずす」も、ここからできる。')}
+    ${L('{下|した}の「ずかん」では、ルートに{入|い}れずに、ぜんぶのカードを{見|み}るだけで{楽|たの}しめる。カードより{少|すこ}しくわしい{話|はなし}・{見|み}どころ・{建|た}てた{年|とし}・{住所|じゅうしょ}と、{文化遺産|ぶんかいさん}オンラインのリンクがのっている。')}
   </ul>`)}
 
   ${sec('h-saved', '🔖', `<ul>
@@ -633,6 +711,7 @@ function router() {
   let v;
   if (page === 'route') v = VIEWS.route(parts[1] || 'cur', parts[2]);
   else if (page === 'card') v = VIEWS.card(parts[1]);
+  else if (page === 'zukan') v = VIEWS.zukan(parts[1]);
   else v = (VIEWS[page] || VIEWS.notfound)();
   $('#title').innerHTML = v.title;
   $('#back').hidden = !v.back;
@@ -646,7 +725,7 @@ function router() {
 /* ---------- 下のナビ（どの画面からでも移動できる） ---------- */
 var navPage = 'home';   // var：保存の関数から先に呼ばれても大丈夫なように
 function updateNav(page) {
-  if (page !== undefined) navPage = page === 'card' ? 'select' : page;   // カードのくわしい画面は「カード」の中
+  if (page !== undefined) navPage = page;
   document.querySelectorAll('#tabs [data-page]').forEach(a => {
     if (a.dataset.page === navPage) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
   });
@@ -662,6 +741,7 @@ const ACT = {
   back() { if (navStack.length > 1) history.back(); else location.hash = '#/'; },
   jump(el) { const t = document.getElementById(el.dataset.to); if (t) { t.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); t.querySelector('h2').focus({ preventScroll: true }); } },
   detail(el) { location.hash = `#/card/${el.dataset.id}`; },
+  zcat(el) { S.zcat = el.dataset.v; document.querySelectorAll('[data-act=zcat]').forEach(b => b.setAttribute('aria-pressed', b === el)); renderZukan(); },
   cat(el) { S.cat = el.dataset.v; document.querySelectorAll('[data-act=cat]').forEach(b => b.setAttribute('aria-pressed', b === el)); renderList(); },
   pts(el) { S.pts = Number(el.dataset.v); document.querySelectorAll('[data-act=pts]').forEach(b => b.setAttribute('aria-pressed', b === el)); renderList(); },
   region(el) { S.region = el.dataset.v; document.querySelectorAll('[data-act=region]').forEach(b => b.setAttribute('aria-pressed', b === el)); renderList(); },
@@ -1000,6 +1080,7 @@ async function init() {
     const res = await fetch('data/cards.json');
     CARDS = (await res.json()).cards;
     try { TRIP = await (await fetch('data/trip_text.json')).json(); } catch { TRIP = null; }   // 旅の文（なくてもアプリは動く）
+    try { MORE = (await (await fetch('data/card_more.json')).json()).cards || {}; } catch { MORE = {}; }   // 図鑑のくわしい情報（なくても動く）
   } catch {
     $('#main').innerHTML = `<div class="empty"><p>データを読みこめませんでした。電波を確かめて、もう一度開いてください。</p></div>`; return;
   }
