@@ -1115,7 +1115,8 @@ async function init() {
   } catch {
     $('#main').innerHTML = `<div class="empty"><p>データを読みこめませんでした。電波を確かめて、もう一度開いてください。</p></div>`; return;
   }
-  CARDS.sort((a, b) => a.id - b.id).forEach(c => BYID.set(c.id, c));
+  // 一覧・図鑑・スライドの順番は、よみの50音順
+  CARDS.sort((a, b) => a.name_kana.localeCompare(b.name_kana, 'ja') || a.id - b.id).forEach(c => BYID.set(c.id, c));
   CARDS.forEach(c => { c.color = POINT_COLOR[c.points] || WARP_COLOR; });
   S.cur = parseIds(S.cur.join(','));
 
