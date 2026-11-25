@@ -23,7 +23,7 @@ const S = {
 /* ---------- 小さな道具 ---------- */
 function load(k, d) { try { const v = JSON.parse(localStorage.getItem(k)); return v ?? d; } catch { return d; } }
 function save(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* 保存できない環境 */ } }
-const saveCur = () => save(LS_CUR, S.cur);
+const saveCur = () => { save(LS_CUR, S.cur); if (typeof updateNav === 'function') updateNav(); };
 const saveSaved = () => save(LS_SAVED, S.saved);
 const savePref = () => save(LS_PREF, S.pref);
 const saveMonths = () => save(LS_MONTHS, S.months);
@@ -550,7 +550,7 @@ VIEWS.help = () => {
   return {
     title: R('アプリの{使|つか}い{方|かた}'), back: true,
     html: `<div class="rules help">
-  <div class="box">${R('このアプリは、ゲームの{最後|さいご}に{持|も}っていたカードから、{本当|ほんとう}にめぐる{旅|たび}のルートを{作|つく}るよ。{右上|みぎうえ}の ☰（メニュー）から、どの{画面|がめん}にも{行|い}けるよ。')}</div>
+  <div class="box">${R('このアプリは、ゲームの{最後|さいご}に{持|も}っていたカードから、{本当|ほんとう}にめぐる{旅|たび}のルートを{作|つく}るよ。{画面|がめん}の{下|した}のボタン（ホーム・しゃしん・カード・ルート・ほぞん）で、どの{画面|がめん}からでも{移動|いどう}できるよ。{遊|あそ}び{方|かた}とこのページは、ホームから{開|ひら}けるよ。')}</div>
   <nav class="help-toc" aria-label="もくじ"><b>${R('もくじ')}</b><ol>${HELP_TOC.map(([id, t]) => `<li><button type="button" data-act="jump" data-to="${id}">${R(t)}</button></li>`).join('')}</ol></nav>
 
   ${sec('h-flow', '🧭', `<ol class="help-steps">
@@ -601,7 +601,7 @@ VIEWS.help = () => {
   </ul>`)}
 
   ${sec('h-saved', '🔖', `<ul>
-    ${L('ルートの{確認|かくにん}の「{保存|ほぞん}」で、ルートをとっておける。☰ の「{保存|ほぞん}したルート」から、{開|ひら}く・{案内|あんない}・{共有|きょうゆう}・{消|け}すができる。')}
+    ${L('ルートの{確認|かくにん}の「{保存|ほぞん}」で、ルートをとっておける。{下|した}の「ほぞん」から、{開|ひら}く・{案内|あんない}・{共有|きょうゆう}・{消|け}すができる。')}
     ${L('「{共有|きょうゆう}」で、ルートのリンクを{家族|かぞく}や{友|とも}だちに{送|おく}れる。もらった{人|ひと}は、リンクを{開|ひら}くと{同|おな}じルートが{見|み}られて、{保存|ほぞん}もできる。')}
     ${L('{保存|ほぞん}したルートは、このスマホの{中|なか}だけにあるよ。{機種変更|きしゅへんこう}のときは「ファイルに{書|か}き{出|だ}す」で{保存|ほぞん}して、{新|あたら}しいスマホで「{読|よ}みこむ」。')}
   </ul>`)}
@@ -643,44 +643,24 @@ function router() {
   window.scrollTo(0, 0);
 }
 
-/* ---------- メニュー（右上の☰） ---------- */
-const MENU = [
-  ['home', '#/', '🏠', 'ホーム'],
-  ['photo', '#/photo', '🗓️', '{写真|しゃしん}1まいで まとめて{読|よ}む'],
-  ['scan', '#/scan', '📷', 'カードをカメラで{読|よ}む'],
-  ['select', '#/select', '🃏', '{一覧|いちらん}から{選|えら}ぶ'],
-  ['route', '#/route', '🗺️', 'いまのルート'],
-  ['saved', '#/saved', '🔖', '{保存|ほぞん}したルート'],
-  ['rules', '#/rules', '🎲', '{遊|あそ}び{方|かた}'],
-  ['help', '#/help', '❓', 'アプリの{使|つか}い{方|かた}'],
-];
-let navPage = 'home';
+/* ---------- 下のナビ（どの画面からでも移動できる） ---------- */
+var navPage = 'home';   // var：保存の関数から先に呼ばれても大丈夫なように
 function updateNav(page) {
-  navPage = page === 'card' ? 'select' : page;   // カードのくわしい画面は「一覧から選ぶ」の中
+  if (page !== undefined) navPage = page === 'card' ? 'select' : page;   // カードのくわしい画面は「カード」の中
+  document.querySelectorAll('#tabs [data-page]').forEach(a => {
+    if (a.dataset.page === navPage) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+  });
+  const n = S.cur.length, b = $('#tabCount');
+  if (b) { b.hidden = !n; b.textContent = n; }
+  const rt = document.querySelector('#tabs [data-page=route]');
+  if (rt) rt.setAttribute('aria-label', n ? `ルート（${n}か所）` : 'ルート');
 }
-function openMenu() {
-  const extra = { route: S.cur.length ? `${S.cur.length}か所` : '', saved: S.saved.length ? `${S.saved.length}こ` : '' };
-  $('#menuList').innerHTML = MENU.map(([page, href, ico, label]) =>
-    `<li><a href="${href}"${page === navPage ? ' aria-current="page"' : ''}><span class="ico" aria-hidden="true">${ico}</span><span>${R(label)}</span>${extra[page] ? `<span class="sub">${extra[page]}</span>` : ''}</a></li>`).join('');
-  $('#menu').hidden = false;
-  $('#menuBtn').setAttribute('aria-expanded', 'true');
-  $('#menuList a').focus();
-}
-function closeMenu() {
-  if ($('#menu').hidden) return;
-  $('#menu').hidden = true;
-  $('#menuBtn').setAttribute('aria-expanded', 'false');
-}
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenu(); });
-$('#menu').addEventListener('click', e => { if (e.target.closest('a')) closeMenu(); });
 function rerender() { const y = window.scrollY; router(); window.scrollTo(0, y); }
 
 /* ---------- 操作 ---------- */
 const ACT = {
   back() { if (navStack.length > 1) history.back(); else location.hash = '#/'; },
   jump(el) { const t = document.getElementById(el.dataset.to); if (t) { t.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); t.querySelector('h2').focus({ preventScroll: true }); } },
-  menu() { if ($('#menu').hidden) openMenu(); else closeMenu(); },
-  menuClose() { closeMenu(); $('#menuBtn').focus(); },
   detail(el) { location.hash = `#/card/${el.dataset.id}`; },
   cat(el) { S.cat = el.dataset.v; document.querySelectorAll('[data-act=cat]').forEach(b => b.setAttribute('aria-pressed', b === el)); renderList(); },
   pts(el) { S.pts = Number(el.dataset.v); document.querySelectorAll('[data-act=pts]').forEach(b => b.setAttribute('aria-pressed', b === el)); renderList(); },
