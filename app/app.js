@@ -277,7 +277,7 @@ function renderZukan() {
   const list = CARDS.filter(c => (!S.zcat || c.category === S.zcat) &&
     (!q || [c.name, c.name_kana, c.city, c.other_name, c.official_name].some(v => String(v || '').toLowerCase().includes(q))));
   $('#zlist').innerHTML = list.map(c => `<li><a class="zk" href="#/zukan/${c.id}" style="--c:${c.color}">
-      ${photo(c, 'zk-ph')}${pt(c)}
+      ${photo(c, 'zk-ph')}
       <span class="zk-nm">${R(c.name_ruby)}</span>
       <span class="zk-sub">${esc(c.city)}</span>
     </a></li>`).join('') || `<li class="empty">見つからなかったよ。ことばを かえてみてね。</li>`;
@@ -313,7 +313,6 @@ function zukanDetail(id) {
       <h3>${R('もっと{知|し}りたいときは')}</h3>
       <p>${R('{文化庁|ぶんかちょう}の「{文化遺産|ぶんかいさん}オンライン」に、{正式|せいしき}な{説明|せつめい}がのっているよ。')}</p>
       <a class="btn primary" href="${esc(c.heritage_url)}" target="_blank" rel="noopener"><span class="ico">🏛️</span>${R('{文化遺産|ぶんかいさん}オンラインで{見|み}る')}</a>
-      <p class="zk-url"><a href="${esc(c.heritage_url)}" target="_blank" rel="noopener">${esc(c.heritage_url)}</a></p>
     </section>` : ''}
     <div class="stack">
       <a class="btn blue" href="${searchUrl(c)}" target="_blank" rel="noopener"><span class="ico">📍</span>${R('{地図|ちず}で{見|み}る')}</a>
