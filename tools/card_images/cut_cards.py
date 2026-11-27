@@ -3,10 +3,14 @@
   swiftc -O img.swift -o img
   swift render.swift <カード表のPDF>     # page1.png〜 を作る（2.5倍）。今は ver18/たてものがたり_カード_表.pdf
   python3 cut_cards.py
+イラスト版（一覧に出す絵 app/illust/<id>.jpg）は、page*.png をイラスト版PDFから作って
+  python3 cut_cards.py ../../app/illust 360
+（2つ目の数字は、できあがりの大きさ px。省略すると 439 px）
 カードの並びやPDFのレイアウトを変えたら、ORDER と XS/YS を直すこと。"""
-import numpy as np, subprocess, os, glob
+import numpy as np, subprocess, os, glob, sys
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.join(HERE, '..', '..', 'app', 'cards')
+OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, '..', '..', 'app', 'cards')
+SIZE = int(sys.argv[2]) if len(sys.argv) > 2 else None   # 省略：半分の大きさ（439 px）
 S = 878                                   # カード1枚の大きさ（px, 2.5倍で描いたとき）
 XS = [127, 1050, 1969]; YS = [255 + 921 * k for k in range(4)]
 # PDFの並び順（ページ1左上から右へ）。'warp' はワープカード
@@ -26,5 +30,7 @@ for pg in pages:
             cr = a[y:y + S, x:x + S].astype(float)
             cr = cr[:S // 2 * 2, :S // 2 * 2].reshape(S // 2, 2, S // 2, 2, 3).mean((1, 3)).astype(np.uint8)
             cr.tofile('/tmp/_c.rgb')
-            subprocess.run([os.path.join(HERE, 'img'), 'tojpg', '/tmp/_c.rgb', str(S // 2), str(S // 2), os.path.join(OUT, f'{cid}.jpg')])
+            out = os.path.join(OUT, f'{cid}.jpg')
+            subprocess.run([os.path.join(HERE, 'img'), 'tojpg', '/tmp/_c.rgb', str(S // 2), str(S // 2), out])
+            if SIZE: subprocess.run(['sips', '-s', 'format', 'jpeg', '-s', 'formatOptions', '50', '--resampleWidth', str(SIZE), out, '--out', out], capture_output=True)
 print('done', n)

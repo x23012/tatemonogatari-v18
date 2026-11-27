@@ -47,6 +47,8 @@ function photo(c, cls = '', small = true) {
   const src = esc(small ? c.photo.replace('photos/', 'photos/s/') : c.photo);
   return `<div class="ph ${cls}" style="--img:url('${src}')"><img src="${src}" alt="${esc(c.name)}の写真" loading="lazy" decoding="async"></div>`;
 }
+/** カードのイラスト（イラスト版のカードの表。一覧で使う。illust/<id>.jpg） */
+const art = (c, cls = '') => `<img class="art ${cls}" src="illust/${c.id}.jpg" alt="${esc(c.name)}のカード" loading="lazy" decoding="async" width="360" height="360">`;
 const pt = (c, big = false) => `<span class="pt${big ? ' big' : ''}" style="--c:${c.color}" aria-label="${c.points}点"><b>${c.points}</b><small>てん</small></span>`;
 const gatsu = m => `${m}<ruby>月<rt>がつ</rt></ruby>`;
 const CATS = ['国宝', '重要文化財', '登録有形文化財'];
@@ -217,7 +219,7 @@ function itemHtml(c) {
   return `<li class="item${on ? ' on' : ''}" style="--c:${c.color}" data-id="${c.id}">
     <span class="band"></span>
     <button class="open" data-act="detail" data-id="${c.id}">
-      ${photo(c, 'thumb')}
+      ${art(c, 'thumb')}
       <span class="txt"><span class="nm">${R(c.name_ruby)}</span><br><span class="sub">${esc(c.city)}</span></span>
       ${pt(c)}
     </button>
@@ -282,7 +284,7 @@ function renderZukan() {
   const q = S.zq.trim().toLowerCase();
   const list = CARDS.filter(c => (!S.zcat || c.category === S.zcat) && matchQ(c, q));
   $('#zlist').innerHTML = list.map(c => `<li><a class="zk" href="#/zukan/${c.id}" style="--c:${c.color}">
-      ${photo(c, 'zk-ph')}
+      ${art(c, 'zk-ph')}
       <span class="zk-nm">${R(c.name_ruby)}</span>
       <span class="zk-sub">${esc(c.city)}</span>
     </a></li>`).join('') || `<li class="empty">見つからなかったよ。ことばを かえてみてね。</li>`;
