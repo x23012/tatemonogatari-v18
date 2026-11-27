@@ -47,7 +47,7 @@ document.getElementById('run').onclick=async()=>{
   out.textContent='見本を読みこみ中…';
   await CardMatcher.load(IDS,'../cards/');
   for(const id of IDS) imgs[id]=await loadImg(`../cards/${id}.jpg`);
-  const photos=[]; for(const id of [3,10,22,29,33,45,0,12]) photos.push(await loadImg(`../photos/${id}.jpg`));
+  const photos=[]; for(const n of ['item-dice','item-pieces','item-stamps','end-1','gek-scale','turn-dice','prep-2','gek-3']) photos.push(await loadImg(`../img/rules/${n}.jpg`));   // カードでない絵（建物の写真は著作権のため使わない）
   const N=+document.getElementById('n').value, hard=document.getElementById('hard').checked;
   let t1=0,t3=0,tot=0,acc=0,accWrong=0,accTotal=0; const dOk=[],mOk=[],dNeg=[],mNeg=[];
   const t0=performance.now();

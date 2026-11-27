@@ -19,9 +19,9 @@ python3 -m http.server 8765
    QRの中身は `https://公開URL/?card=<id>`。スマホのカメラで読んでも、アプリ内の読み取りでも追加されます。
 
 ## データを変えたとき
-- `data/cards.json` と `photos/` はキット直下のものをコピーしています。直したら `app/data/`・`app/photos/` にもコピーしてください。
-- `illust/` は「一覧から選ぶ」と図鑑の一覧に出すイラスト版カード（`ver18/たてものがたり_カード_表_イラスト版.pdf` から切り出し。作り方は `tools/card_images/cut_cards.py` の説明）。
-- `photos/s/` は一覧などの小さい表示に使う縮小版（横480px）です。写真を直したら作り直してください：`cd app && for f in photos/*.jpg; do sips -s format jpeg -s formatOptions 40 --resampleWidth 480 "$f" --out "photos/s/$(basename "$f")"; done`
+- `data/cards.json` はキット直下のものをコピーしています（`photo` の項目はのぞく）。直したら `app/data/` にもコピーしてください。
+- 建物の写真は著作権のため、アプリでは使いません（`app/photos/` はありません）。どの画面もイラスト版カードの絵です。
+- `illust/`（一覧・ルートなどの小さい絵、横360px）と `illust/l/`（くわしい画面の大きい絵、横720px）は、`ver18/たてものがたり_カード_表_イラスト版.pdf` から切り出したイラスト版カード。作り方は `tools/card_images/cut_cards.py` の説明。
 - `sw.js` の `VERSION` を1つ上げると、スマホに保存された古いデータが入れかわります。
 - `lat` / `lng` を入れると、自動で「近い順に並べる」ボタンが出て、Googleマップにも座標で渡すようになります。
 
@@ -71,5 +71,6 @@ python3 -m http.server 8765
 | dev/dots-test.html | 四すみの点のテスト（開発用） |
 | dev/trip-list.html | 旅の文のテーマと部品の一覧 |
 | sw.js / manifest.webmanifest / icon* | ホーム画面に追加・オフライン用 |
-| data/, photos/ | カードデータと写真（キット直下のコピー） |
+| data/ | カードデータ（キット直下のコピー） |
+| illust/ | イラスト版カードの絵（どの画面もこれを使う） |
 

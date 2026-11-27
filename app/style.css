@@ -93,7 +93,7 @@ p { margin: 8px 0; }
 .hero .stripes { display: flex; height: 8px; margin: -22px -18px 18px; }
 .hero .stripes span { flex: 1; }
 .hero-photos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 16px; }
-.hero-photos .ph { aspect-ratio: 1; border-radius: 8px; }
+.hero-photos .art { width: 100%; height: auto; border-radius: 8px; }
 .resume {
   display: flex; align-items: center; gap: 12px;
   background: #fff3d6; border: 2px dashed #c9a24a; border-radius: var(--radius);
@@ -101,14 +101,6 @@ p { margin: 8px 0; }
 }
 .resume b { font-size: 18px; }
 
-/* 写真（建物を切らない：contain＋ぼかし背景） */
-.ph { position: relative; overflow: hidden; background: #ddd2b8; }
-.ph::before {
-  content: ""; position: absolute; inset: -12px;
-  background: var(--img) center / cover no-repeat;
-  filter: blur(10px) saturate(.9); opacity: .75;
-}
-.ph img { position: relative; width: 100%; height: 100%; object-fit: contain; }
 
 /* 点数の丸 */
 .pt {
@@ -156,7 +148,7 @@ p { margin: 8px 0; }
   padding: 8px; background: none; border: 0; text-align: left; cursor: pointer;
 }
 .item .thumb { width: 72px; height: 72px; flex: none; border-radius: 8px; }
-.art { display: block; aspect-ratio: 1; object-fit: cover; background: #ddd2b8; }
+.art { display: block; aspect-ratio: 1; object-fit: cover; background: #ddd2b8; }   /* カードのイラスト（正方形） */
 .item .txt { min-width: 0; flex: 1; }
 .item .nm { font-weight: 700; font-size: 17px; line-height: 1.55; }
 .item .sub { font-size: 14px; color: var(--ink-2); line-height: 1.4; }
@@ -184,7 +176,7 @@ p { margin: 8px 0; }
 .dock .num b { font-size: 24px; color: var(--accent); }
 
 /* くわしく */
-.detail-photo { aspect-ratio: 4 / 3; border-radius: var(--radius); border: 2px solid var(--ink); }
+.detail-photo { width: 100%; max-width: 480px; height: auto; margin: 0 auto; border-radius: var(--radius); box-shadow: 0 2px 8px rgba(0,0,0,.2); }
 .detail-head { display: flex; gap: 12px; align-items: center; margin: 14px 0 6px; }
 .detail-head h2 { margin: 0; padding-top: .45em; font-size: 24px; line-height: 1.5; }   /* 上のふりがなが、区分の枠にかからないように */
 .detail-head .tag { margin-bottom: 2px; }
@@ -212,7 +204,7 @@ p { margin: 8px 0; }
 }
 .stop .card { flex: 1; min-width: 0; background: var(--paper); border: 2px solid var(--line); border-left: 8px solid var(--c); border-radius: 12px; padding: 8px; }
 .stop .top { display: flex; gap: 10px; align-items: center; }
-.stop .thumb { width: 72px; height: 54px; flex: none; border-radius: 6px; }
+.stop .thumb { width: 60px; height: 60px; flex: none; border-radius: 6px; }
 .stop .nm { font-weight: 700; line-height: 1.5; background: none; border: 0; padding: 0; text-align: left; cursor: pointer; font-size: 16px; }
 .stop .tools { display: flex; gap: 6px; margin-top: 6px; }
 .ibtn {
@@ -237,7 +229,7 @@ p { margin: 8px 0; }
 .saved .date { font-size: 14px; color: var(--ink-2); }
 .saved .nm { font-weight: 700; font-size: 18px; }
 .strip { display: flex; gap: 4px; margin: 8px 0; overflow: hidden; }
-.strip .ph { width: 56px; height: 42px; flex: none; border-radius: 6px; border-bottom: 4px solid var(--c); }
+.strip .art { width: 48px; height: 48px; flex: none; border-radius: 6px; border-bottom: 4px solid var(--c); }
 
 /* カメラでカードを読む */
 .cam { position: relative; aspect-ratio: 1; border-radius: var(--radius); overflow: hidden; background: #111; border: 2px solid var(--ink); }

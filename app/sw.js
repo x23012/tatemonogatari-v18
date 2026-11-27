@@ -1,5 +1,5 @@
 /* オフラインでも開けるようにする。データや写真を変えたら VERSION を上げる */
-const VERSION = 'tatemono-v18-18';
+const VERSION = 'tatemono-v18-19';
 const SHELL = ['./', 'index.html', 'style.css', 'app.js', 'matcher.js', 'dots.js', 'photoreader.js', 'tripText.js', 'data/cards.json', 'data/trip_text.json', 'data/card_more.json', 'manifest.webmanifest', 'icon.svg', 'icon-192.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -13,7 +13,7 @@ self.addEventListener('fetch', e => {
   const url = new URL(req.url);
   const same = url.origin === location.origin;
   // アプリ本体とデータ：ネット優先（最新を使い、つながらなければ保存分）
-  if (same && !/\/(photos|cards|illust|img)\//.test(url.pathname)) {
+  if (same && !/\/(cards|illust|img)\//.test(url.pathname)) {
     e.respondWith(fetch(req).then(r => { const cp = r.clone(); caches.open(VERSION).then(c => c.put(req, cp)); return r; })
       .catch(() => caches.match(req, { ignoreSearch: true }).then(r => r || caches.match('index.html'))));
     return;

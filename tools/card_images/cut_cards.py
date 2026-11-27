@@ -4,7 +4,8 @@
   swift render.swift <カード表のPDF>     # page1.png〜 を作る（2.5倍）。今は ver18/たてものがたり_カード_表.pdf
   python3 cut_cards.py
 イラスト版（一覧に出す絵 app/illust/<id>.jpg）は、page*.png をイラスト版PDFから作って
-  python3 cut_cards.py ../../app/illust 360
+  python3 cut_cards.py ../../app/illust 360      # 一覧用
+  python3 cut_cards.py ../../app/illust/l 720    # くわしい画面用
 （2つ目の数字は、できあがりの大きさ px。省略すると 439 px）
 カードの並びやPDFのレイアウトを変えたら、ORDER と XS/YS を直すこと。"""
 import numpy as np, subprocess, os, glob, sys
@@ -28,9 +29,11 @@ for pg in pages:
             cid = ORDER[n]; n += 1
             if cid is None or y + S > h: continue
             cr = a[y:y + S, x:x + S].astype(float)
-            cr = cr[:S // 2 * 2, :S // 2 * 2].reshape(S // 2, 2, S // 2, 2, 3).mean((1, 3)).astype(np.uint8)
+            n2 = S if SIZE else S // 2          # 大きさの指定があれば、元の大きさで切り出してから縮める
+            if SIZE: cr = cr.astype(np.uint8)
+            else: cr = cr[:S // 2 * 2, :S // 2 * 2].reshape(S // 2, 2, S // 2, 2, 3).mean((1, 3)).astype(np.uint8)
             cr.tofile('/tmp/_c.rgb')
             out = os.path.join(OUT, f'{cid}.jpg')
-            subprocess.run([os.path.join(HERE, 'img'), 'tojpg', '/tmp/_c.rgb', str(S // 2), str(S // 2), out])
+            subprocess.run([os.path.join(HERE, 'img'), 'tojpg', '/tmp/_c.rgb', str(n2), str(n2), out])
             if SIZE: subprocess.run(['sips', '-s', 'format', 'jpeg', '-s', 'formatOptions', '50', '--resampleWidth', str(SIZE), out, '--out', out], capture_output=True)
 print('done', n)
