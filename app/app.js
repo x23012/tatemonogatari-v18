@@ -42,17 +42,20 @@ function toast(msg) {
   clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2400);
 }
 
-/** カードのイラスト（イラスト版のカードの表）。建物の写真は著作権のため使わず、どの画面もこの絵にする。
- * big：くわしい画面用の大きい絵（illust/l/）。ふだんは一覧用の軽い絵（illust/） */
-const art = (c, cls = '', big = false) => `<img class="art ${cls}" src="illust/${big ? 'l/' : ''}${esc(c.id)}.jpg" alt="${esc(c.name)}のカード" loading="lazy" decoding="async" width="${big ? 720 : 360}" height="${big ? 720 : 360}">`;
+/* 建物の写真は著作権のため使わない。かわりに2種類の絵を使う */
+/** カードの絵（イラスト版のカードの表。点数や名前つき）：一覧と、読みとったカードの確認に。illust/<id>.jpg */
+const art = (c, cls = '') => `<img class="art ${cls}" src="illust/${esc(c.id)}.jpg" alt="${esc(c.name)}のカード" loading="lazy" decoding="async" width="360" height="360">`;
+/** 建物のイラスト（点数や名前のない素材の絵）：選んだ後の画面（くわしい・ルート・ホーム・保存）に。
+ * big：くわしい画面用の大きい絵（art/l/、横800px）。ふだんは軽い絵（art/、横360px） */
+const pic = (c, cls = '', big = false) => `<img class="pic ${cls}" src="art/${big ? 'l/' : ''}${esc(c.id)}.jpg" alt="${esc(c.name)}のイラスト" loading="lazy" decoding="async">`;
 const pt = (c, big = false) => `<span class="pt${big ? ' big' : ''}" style="--c:${c.color}" aria-label="${c.points}点"><b>${c.points}</b><small>てん</small></span>`;
 const gatsu = m => `${m}<ruby>月<rt>がつ</rt></ruby>`;
 const CATS = ['国宝', '重要文化財', '登録有形文化財'];
 /** 検索のことばが、名前・よみ・市町などに入っているか */
 const matchQ = (c, q) => !q || [c.name, c.name_kana, c.city, c.other_name, c.official_name].some(v => String(v || '').toLowerCase().includes(q));
-/** くわしい画面（カード・図鑑）の上の部分：大きなカードの絵・点数・区分・名前・ひとこと・説明 */
+/** くわしい画面（カード・図鑑）の上の部分：大きなイラスト・点数・区分・名前・ひとこと・説明 */
 const cardHead = c => `
-    ${art(c, 'detail-photo', true)}
+    ${pic(c, 'detail-photo', true)}
     <div class="detail-head">${pt(c, true)}<div><span class="tag">${esc(c.category)}</span><h2>${R(c.name_ruby)}</h2></div></div>
     ${c.other_name ? `<p class="alias">べつの名前：${esc(c.other_name)}</p>` : ''}
     <p class="catch" style="--c:${c.color}">${esc(c.catchphrase)}</p>
@@ -161,7 +164,7 @@ VIEWS.home = () => {
       <div class="stripes"><span style="background:var(--kokuho)"></span><span style="background:var(--juubun)"></span><span style="background:var(--touroku)"></span></div>
       <h2>たてものがたり</h2>
       <p>${R('{持|も}っているカードで、{本当|ほんとう}にめぐる{旅|たび}へ。')}</p>
-      <div class="hero-photos">${picks.map(c => art(c)).join('')}</div>
+      <div class="hero-photos">${picks.map(c => pic(c)).join('')}</div>
     </section>
     ${S.pref.helpSeen ? '' : `<a class="resume first" href="#/help"><span style="font-size:28px">🔰</span><span style="flex:1"><b>${R('はじめての{人|ひと}へ')}</b><br><span class="muted">${R('アプリの{使|つか}い{方|かた}を{見|み}る')}</span></span><span aria-hidden="true">›</span></a>`}
     ${n ? `<a class="resume" href="#/route"><span style="font-size:28px">🗺️</span><span style="flex:1"><b>つくりかけのルート</b><br><span class="muted">${n}か所 ・ つづきを見る</span></span><span aria-hidden="true">›</span></a>` : ''}
@@ -362,7 +365,7 @@ VIEWS.route = (kind, arg) => {
     return `<li class="stop" style="--c:${c.color}">
       <span class="no">${i + 1}</span>
       <div class="card">
-        <div class="top">${art(c, 'thumb')}<div style="flex:1;min-width:0"><button class="nm" data-act="detail" data-id="${c.id}">${R(c.name_ruby)}</button><div class="muted" style="font-size:13px">${editable && S.months[c.id] ? `<span class="month">${gatsu(S.months[c.id])}</span> ` : ''}${esc(c.city)}</div></div>${pt(c)}</div>
+        <div class="top">${pic(c, 'thumb')}<div style="flex:1;min-width:0"><button class="nm" data-act="detail" data-id="${c.id}">${R(c.name_ruby)}</button><div class="muted" style="font-size:13px">${editable && S.months[c.id] ? `<span class="month">${gatsu(S.months[c.id])}</span> ` : ''}${esc(c.city)}</div></div>${pt(c)}</div>
         <div class="tools">
           ${editable ? `<button class="ibtn" data-act="up" data-i="${i}" ${i === 0 ? 'disabled' : ''} aria-label="上へ">▲</button>
           <button class="ibtn" data-act="down" data-i="${i}" ${i === ids.length - 1 ? 'disabled' : ''} aria-label="下へ">▼</button>
@@ -420,7 +423,7 @@ VIEWS.saved = () => ({
     return `<article class="saved">
       <div class="date">${fmtDate(r.date)} ・ ${cs.length}か所</div>
       <div class="nm">${esc(r.name)}</div>
-      <div class="strip">${cs.slice(0, 8).map(c => art(c).replace('<img ', `<img style="--c:${c.color}" `)).join('')}</div>
+      <div class="strip">${cs.slice(0, 8).map(c => pic(c).replace('<img ', `<img style="--c:${c.color}" `)).join('')}</div>
       <div class="row">
         <a class="btn small" href="#/route/s/${r.id}">${R('{開|ひら}く')}</a>
         ${segs[0] ? `<a class="btn small blue" href="${segs[0].url}" target="_blank" rel="noopener">${R('{案内|あんない}')}</a>` : ''}
@@ -670,7 +673,7 @@ VIEWS.help = () => {
   </ul>`)}
 
   ${sec('h-card', '🏯', `<ul>
-    ${L('カードをおすと、{大|おお}きなカードの{絵|え}、{名前|なまえ}、{点数|てんすう}、ひとこと、{説明|せつめい}、{場所|ばしょ}・{使|つか}いみち・つくりが{見|み}られる。')}
+    ${L('カードをおすと、{大|おお}きなイラスト、{名前|なまえ}、{点数|てんすう}、ひとこと、{説明|せつめい}、{場所|ばしょ}・{使|つか}いみち・つくりが{見|み}られる。')}
     ${L('「{地図|ちず}で{見|み}る」でGoogleマップ、「{文化遺産|ぶんかいさん}オンラインで{見|み}る」で、もっとくわしい{紹介|しょうかい}ページが{開|ひら}く。')}
     ${L('「ルートに{入|い}れる」「ルートからはずす」も、ここからできる。')}
     ${L('{下|した}の「ずかん」では、ルートに{入|い}れずに、ぜんぶのカードを{見|み}るだけで{楽|たの}しめる。カードより{少|すこ}しくわしい{話|はなし}・{見|み}どころ・{建|た}てた{年|とし}・{住所|じゅうしょ}と、{文化遺産|ぶんかいさん}オンラインのリンクがのっている。')}

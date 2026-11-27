@@ -93,7 +93,7 @@ p { margin: 8px 0; }
 .hero .stripes { display: flex; height: 8px; margin: -22px -18px 18px; }
 .hero .stripes span { flex: 1; }
 .hero-photos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 16px; }
-.hero-photos .art { width: 100%; height: auto; border-radius: 8px; }
+.hero-photos .pic { width: 100%; border-radius: 8px; }
 .resume {
   display: flex; align-items: center; gap: 12px;
   background: #fff3d6; border: 2px dashed #c9a24a; border-radius: var(--radius);
@@ -148,7 +148,8 @@ p { margin: 8px 0; }
   padding: 8px; background: none; border: 0; text-align: left; cursor: pointer;
 }
 .item .thumb { width: 72px; height: 72px; flex: none; border-radius: 8px; }
-.art { display: block; aspect-ratio: 1; object-fit: cover; background: #ddd2b8; }   /* カードのイラスト（正方形） */
+.art { display: block; aspect-ratio: 1; object-fit: cover; background: #ddd2b8; }   /* カードの絵（正方形） */
+.pic { display: block; aspect-ratio: 1; object-fit: cover; background: #ddd2b8; }   /* 建物のイラスト（小さい所は正方形に切る） */
 .item .txt { min-width: 0; flex: 1; }
 .item .nm { font-weight: 700; font-size: 17px; line-height: 1.55; }
 .item .sub { font-size: 14px; color: var(--ink-2); line-height: 1.4; }
@@ -176,7 +177,7 @@ p { margin: 8px 0; }
 .dock .num b { font-size: 24px; color: var(--accent); }
 
 /* くわしく */
-.detail-photo { width: 100%; max-width: 480px; height: auto; margin: 0 auto; border-radius: var(--radius); box-shadow: 0 2px 8px rgba(0,0,0,.2); }
+.pic.detail-photo { width: 100%; max-width: 480px; aspect-ratio: auto; height: auto; min-height: 240px; margin: 0 auto; border-radius: var(--radius); border: 2px solid var(--ink); }   /* 絵の縦横はそのまま */
 .detail-head { display: flex; gap: 12px; align-items: center; margin: 14px 0 6px; }
 .detail-head h2 { margin: 0; padding-top: .45em; font-size: 24px; line-height: 1.5; }   /* 上のふりがなが、区分の枠にかからないように */
 .detail-head .tag { margin-bottom: 2px; }
@@ -229,7 +230,7 @@ p { margin: 8px 0; }
 .saved .date { font-size: 14px; color: var(--ink-2); }
 .saved .nm { font-weight: 700; font-size: 18px; }
 .strip { display: flex; gap: 4px; margin: 8px 0; overflow: hidden; }
-.strip .art { width: 48px; height: 48px; flex: none; border-radius: 6px; border-bottom: 4px solid var(--c); }
+.strip .pic { width: 48px; height: 48px; flex: none; border-radius: 6px; border-bottom: 4px solid var(--c); }
 
 /* カメラでカードを読む */
 .cam { position: relative; aspect-ratio: 1; border-radius: var(--radius); overflow: hidden; background: #111; border: 2px solid var(--ink); }

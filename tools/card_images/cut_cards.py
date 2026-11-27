@@ -4,8 +4,7 @@
   swift render.swift <カード表のPDF>     # page1.png〜 を作る（2.5倍）。今は ver18/たてものがたり_カード_表.pdf
   python3 cut_cards.py
 イラスト版（一覧に出す絵 app/illust/<id>.jpg）は、page*.png をイラスト版PDFから作って
-  python3 cut_cards.py ../../app/illust 360      # 一覧用
-  python3 cut_cards.py ../../app/illust/l 720    # くわしい画面用
+  python3 cut_cards.py ../../app/illust 360
 （2つ目の数字は、できあがりの大きさ px。省略すると 439 px）
 カードの並びやPDFのレイアウトを変えたら、ORDER と XS/YS を直すこと。"""
 import numpy as np, subprocess, os, glob, sys
