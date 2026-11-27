@@ -17,13 +17,14 @@ const S = {
   saved: load(LS_SAVED, []),       // [{id, name, date, cards:[...]}]
   pref: Object.assign({ mode: 'transit', fromHere: false }, load(LS_PREF, {})),
   months: load(LS_MONTHS, {}),     // カードID → スタンプの月（写真まとめ読みで入れたとき）
-  q: '', cat: '', region: '', pts: 0,
+  q: '', cat: '', region: '', pts: 0,   // 一覧から選ぶ：しぼりこみ
+  zq: '', zcat: '',                       // 図鑑：しぼりこみ
 };
 
 /* ---------- 小さな道具 ---------- */
 function load(k, d) { try { const v = JSON.parse(localStorage.getItem(k)); return v ?? d; } catch { return d; } }
 function save(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* 保存できない環境 */ } }
-const saveCur = () => { save(LS_CUR, S.cur); if (typeof updateNav === 'function') updateNav(); };
+const saveCur = () => { save(LS_CUR, S.cur); updateNav(); };   // ルートの数を下のナビにも出す
 const saveSaved = () => save(LS_SAVED, S.saved);
 const savePref = () => save(LS_PREF, S.pref);
 const saveMonths = () => save(LS_MONTHS, S.months);
@@ -41,11 +42,23 @@ function toast(msg) {
   clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2400);
 }
 
-function photo(c, cls = '') {
-  const src = esc(c.photo);
+/** 建物の写真。small：一覧などの小さい表示は、軽い縮小版（photos/s/）を使う */
+function photo(c, cls = '', small = true) {
+  const src = esc(small ? c.photo.replace('photos/', 'photos/s/') : c.photo);
   return `<div class="ph ${cls}" style="--img:url('${src}')"><img src="${src}" alt="${esc(c.name)}の写真" loading="lazy" decoding="async"></div>`;
 }
 const pt = (c, big = false) => `<span class="pt${big ? ' big' : ''}" style="--c:${c.color}" aria-label="${c.points}点"><b>${c.points}</b><small>てん</small></span>`;
+const gatsu = m => `${m}<ruby>月<rt>がつ</rt></ruby>`;
+const CATS = ['国宝', '重要文化財', '登録有形文化財'];
+/** 検索のことばが、名前・よみ・市町などに入っているか */
+const matchQ = (c, q) => !q || [c.name, c.name_kana, c.city, c.other_name, c.official_name].some(v => String(v || '').toLowerCase().includes(q));
+/** くわしい画面（カード・図鑑）の上の部分：大きな写真・点数・区分・名前・ひとこと・説明 */
+const cardHead = c => `
+    ${photo(c, 'detail-photo', false)}
+    <div class="detail-head">${pt(c, true)}<div><span class="tag">${esc(c.category)}</span><h2>${R(c.name_ruby)}</h2></div></div>
+    ${c.other_name ? `<p class="alias">べつの名前：${esc(c.other_name)}</p>` : ''}
+    <p class="catch" style="--c:${c.color}">${esc(c.catchphrase)}</p>
+    <p>${esc(c.description)}</p>`;
 
 /* ---------- ルート計算 ---------- */
 const hasGeo = c => c && c.lat != null && c.lng != null;
@@ -62,8 +75,8 @@ function nearestOrder(ids, start) {
   let here = start || rest.shift();
   if (!start) out.push(here);
   while (rest.length) {
-    let bi = 0;
-    rest.forEach((c, i) => { if (km(here, c) < km(here, rest[bi])) bi = i; });
+    let bi = 0, bd = Infinity;
+    rest.forEach((c, i) => { const d = km(here, c); if (d < bd) { bd = d; bi = i; } });
     here = rest.splice(bi, 1)[0];
     out.push(here);
   }
@@ -168,7 +181,7 @@ VIEWS.home = () => {
 };
 
 VIEWS.select = () => {
-  const cats = [['', 'すべての区分'], ['国宝', '国宝'], ['重要文化財', '重要文化財'], ['登録有形文化財', '登録有形文化財']];
+  const cats = [['', 'すべての区分'], ...CATS.map(v => [v, v])];
   const pts = [0, 6, 5, 4, 3, 2, 1];
   const regions = ['', ...new Set(CARDS.map(c => c.region))];
   return {
@@ -183,10 +196,9 @@ VIEWS.select = () => {
     <ul class="list" id="list"></ul>
     <div class="dock"><div class="dock-in">
       <span class="num" id="selnum"></span>
-      <a class="btn primary" href="#/route" id="toRoute">ルートを{見|み}る ›</a>
+      <a class="btn primary" href="#/route" id="toRoute">${R('ルートを{見|み}る ›')}</a>
     </div></div>`,
     after() {
-      $('#toRoute').innerHTML = R('ルートを{見|み}る ›');
       $('#q').addEventListener('input', e => { S.q = e.target.value; renderList(); });
       renderList(); updateDock();
     },
@@ -198,8 +210,7 @@ function filtered() {
   return CARDS.filter(c =>
     (!S.cat || c.category === S.cat) &&
     (!S.pts || c.points === S.pts) &&
-    (!S.region || c.region === S.region) &&
-    (!q || [c.name, c.name_kana, c.city, c.other_name, c.official_name].some(v => String(v || '').toLowerCase().includes(q))));
+    (!S.region || c.region === S.region) && matchQ(c, q));
 }
 function itemHtml(c) {
   const on = S.cur.includes(c.id);
@@ -230,12 +241,7 @@ VIEWS.card = id => {
   const on = S.cur.includes(c.id);
   return {
     title: R('くわしく'), back: true,
-    html: `
-    ${photo(c, 'detail-photo')}
-    <div class="detail-head">${pt(c, true)}<div><span class="tag">${esc(c.category)}</span><h2>${R(c.name_ruby)}</h2></div></div>
-    ${c.other_name ? `<p class="alias">べつの名前：${esc(c.other_name)}</p>` : ''}
-    <p class="catch" style="--c:${c.color}">${esc(c.catchphrase)}</p>
-    <p>${esc(c.description)}</p>
+    html: `${cardHead(c)}
     <dl class="facts">
       <dt>ばしょ</dt><dd>${esc(c.city)}（${esc(c.region)}）</dd>
       <dt>時代</dt><dd>${esc(c.era)}</dd>
@@ -256,14 +262,14 @@ let MORE = {};   // data/card_more.json：文化遺産オンラインの解説�
 VIEWS.zukan = id => (id !== undefined && id !== '' ? zukanDetail(id) : zukanList());
 
 function zukanList() {
-  const cats = [['', 'すべて'], ['国宝', '国宝'], ['重要文化財', '重要文化財'], ['登録有形文化財', '登録有形文化財']];
+  const cats = [['', 'すべて'], ...CATS.map(v => [v, v])];
   return {
     title: R('カード{図鑑|ずかん}'), back: false,
     html: `
     <p class="muted" style="margin-top:0">${R('{気|き}になった{建物|たてもの}をおすと、カードより{少|すこ}しくわしい{話|はなし}と、{文化遺産|ぶんかいさん}オンラインへのリンクが{見|み}られるよ。')}</p>
     <label class="sr" for="zq">さがす</label>
-    <input class="search" id="zq" type="search" placeholder="名前や 市・町で さがす（れい：岡崎）" value="${esc(S.zq || '')}" autocomplete="off">
-    <div class="chips" role="group" aria-label="区分">${cats.map(([v, l]) => `<button class="chip" data-act="zcat" data-v="${v}" aria-pressed="${(S.zcat || '') === v}">${l}</button>`).join('')}</div>
+    <input class="search" id="zq" type="search" placeholder="名前や 市・町で さがす（れい：岡崎）" value="${esc(S.zq)}" autocomplete="off">
+    <div class="chips" role="group" aria-label="区分">${cats.map(([v, l]) => `<button class="chip" data-act="zcat" data-v="${v}" aria-pressed="${S.zcat === v}">${l}</button>`).join('')}</div>
     <p class="count" id="zcount"></p>
     <ul class="zk-grid" id="zlist"></ul>`,
     after() {
@@ -273,9 +279,8 @@ function zukanList() {
   };
 }
 function renderZukan() {
-  const q = (S.zq || '').trim().toLowerCase();
-  const list = CARDS.filter(c => (!S.zcat || c.category === S.zcat) &&
-    (!q || [c.name, c.name_kana, c.city, c.other_name, c.official_name].some(v => String(v || '').toLowerCase().includes(q))));
+  const q = S.zq.trim().toLowerCase();
+  const list = CARDS.filter(c => (!S.zcat || c.category === S.zcat) && matchQ(c, q));
   $('#zlist').innerHTML = list.map(c => `<li><a class="zk" href="#/zukan/${c.id}" style="--c:${c.color}">
       ${photo(c, 'zk-ph')}
       <span class="zk-nm">${R(c.name_ruby)}</span>
@@ -292,12 +297,7 @@ function zukanDetail(id) {
   const fact = (k, v) => v ? `<dt>${k}</dt><dd>${esc(v)}</dd>` : '';
   return {
     title: R('カード{図鑑|ずかん}'), back: true,
-    html: `
-    ${photo(c, 'detail-photo')}
-    <div class="detail-head">${pt(c, true)}<div><span class="tag">${esc(c.category)}</span><h2>${R(c.name_ruby)}</h2></div></div>
-    ${c.other_name ? `<p class="alias">べつの名前：${esc(c.other_name)}</p>` : ''}
-    <p class="catch" style="--c:${c.color}">${esc(c.catchphrase)}</p>
-    <p>${esc(c.description)}</p>
+    html: `${cardHead(c)}
     ${m.more ? `<section class="zk-more"><h3>${R('もう{少|すこ}しくわしく')}</h3><p>${esc(m.more)}</p>
       ${m.look && m.look.length ? `<h3>${R('{見|み}どころ')}</h3><ul class="zk-look">${m.look.map(t => `<li>${esc(t)}</li>`).join('')}</ul>` : ''}</section>` : ''}
     <dl class="facts">
@@ -364,7 +364,7 @@ VIEWS.route = (kind, arg) => {
     return `<li class="stop" style="--c:${c.color}">
       <span class="no">${i + 1}</span>
       <div class="card">
-        <div class="top">${photo(c, 'thumb')}<div style="flex:1;min-width:0"><button class="nm" data-act="detail" data-id="${c.id}">${R(c.name_ruby)}</button><div class="muted" style="font-size:13px">${editable && S.months[c.id] ? `<span class="month">${S.months[c.id]}{月|がつ}</span> `.replace(/\{月\|がつ\}/, '<ruby>月<rt>がつ</rt></ruby>') : ''}${esc(c.city)}</div></div>${pt(c)}</div>
+        <div class="top">${photo(c, 'thumb')}<div style="flex:1;min-width:0"><button class="nm" data-act="detail" data-id="${c.id}">${R(c.name_ruby)}</button><div class="muted" style="font-size:13px">${editable && S.months[c.id] ? `<span class="month">${gatsu(S.months[c.id])}</span> ` : ''}${esc(c.city)}</div></div>${pt(c)}</div>
         <div class="tools">
           ${editable ? `<button class="ibtn" data-act="up" data-i="${i}" ${i === 0 ? 'disabled' : ''} aria-label="上へ">▲</button>
           <button class="ibtn" data-act="down" data-i="${i}" ${i === ids.length - 1 ? 'disabled' : ''} aria-label="下へ">▼</button>
@@ -458,9 +458,9 @@ VIEWS.scan = () => ({
   <div class="scanned" id="scanned"></div>
   <div class="dock"><div class="dock-in">
     <span class="num" id="selnum"></span>
-    <a class="btn primary" href="#/route" id="toRoute"></a>
+    <a class="btn primary" href="#/route" id="toRoute">${R('ルートを{見|み}る ›')}</a>
   </div></div>`,
-  after() { $('#toRoute').innerHTML = R('ルートを{見|み}る ›'); updateDock(); renderScanned(); startScan(); },
+  after() { updateDock(); renderScanned(); startScan(); },
 });
 
 VIEWS.photo = () => ({
@@ -480,7 +480,7 @@ VIEWS.photo = () => ({
     <label class="btn primary" style="cursor:pointer"><span class="ico">📷</span>${R('{写真|しゃしん}を{撮|と}る')}<input type="file" accept="image/*" capture="environment" class="photo-in" hidden></label>
     <label class="btn" style="cursor:pointer"><span class="ico">🖼️</span>${R('アルバム')}<input type="file" accept="image/*" class="photo-in" hidden></label>
   </div>
-  <div id="photoOut">${photoState.res ? '' : ''}</div>`,
+  <div id="photoOut"></div>`,
   after() {
     document.querySelectorAll('.photo-in').forEach(i => i.addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (f) readPhoto(f); }));
     if (photoState.res) renderPhotoResult();
@@ -723,7 +723,7 @@ function router() {
 }
 
 /* ---------- 下のナビ（どの画面からでも移動できる） ---------- */
-var navPage = 'home';   // var：保存の関数から先に呼ばれても大丈夫なように
+let navPage = 'home';
 function updateNav(page) {
   if (page !== undefined) navPage = page;
   document.querySelectorAll('#tabs [data-page]').forEach(a => {
@@ -1021,8 +1021,12 @@ async function readPhoto(file) {
   }
 }
 
+/** 読みとった写真に、自分のカードの枠と月を書きこんだ絵。月や色を直したときだけ描き直す */
+let overviewCache = { key: '', url: '' };
 function photoOverview() {
   const { canvas, items } = photoState.res;
+  const key = photoState.color + '|' + photoState.rows.map(r => `${r.month}${r.use ? '+' : '-'}${r.color}`).join(',');
+  if (overviewCache.res === photoState.res && overviewCache.key === key) return overviewCache.url;
   const c = document.createElement('canvas'), k = Math.min(1, 900 / canvas.width);
   c.width = canvas.width * k; c.height = canvas.height * k;
   const x = c.getContext('2d'); x.drawImage(canvas, 0, 0, c.width, c.height);
@@ -1039,7 +1043,8 @@ function photoOverview() {
       x.fillStyle = '#222'; x.fillText(String(row.month), it.stamp.cx * k + it.stamp.r * k * 2.2, it.stamp.cy * k - it.stamp.r * k * 2.2 + 1);
     }
   });
-  return c.toDataURL('image/jpeg', 0.85);
+  overviewCache = { res: photoState.res, key, url: c.toDataURL('image/jpeg', 0.85) };
+  return overviewCache.url;
 }
 
 function renderPhotoResult() {
@@ -1054,7 +1059,6 @@ function renderPhotoResult() {
   const dupMonth = new Set(mine.filter(r => r.use).map(r => r.month).filter((m, j, a) => a.indexOf(m) !== j));
   const dupCard = new Set(mine.filter(r => r.use && r.id !== 'warp').map(r => r.id).filter((m, j, a) => a.indexOf(m) !== j));   // ワープは2枚あってよい
   // どこが重なっているかを書く（例：「犬山城が 3月と7月の 2つにあるよ」「5月が 犬山城と徳川美術館の 2つにあるよ」）
-  const gatsu = m => `${m}<ruby>月<rt>がつ</rt></ruby>`;
   const cardName = id => id === 'warp' ? 'ワープ' : esc(BYID.get(id).name);
   const dupCardMsg = [...dupCard].map(id => { const ms = mine.filter(r => r.use && r.id === id).map(r => r.month);
     return `<b>${cardName(id)}</b>${R('が')} ${ms.map(gatsu).join('と')}${R('の')} ${ms.length}${R('つにあるよ。')}`; });
@@ -1062,7 +1066,7 @@ function renderPhotoResult() {
     return `<b>${gatsu(m)}</b>${R('が')} ${ids.map(cardName).join('と')}${R('の')} ${ids.length}${R('つにあるよ。')}`; });
   const cardOptions = (r) => {
     const first = r.cands.filter(id => id !== 'warp').slice(0, 3);
-    const rest = CARDS.filter(c => !first.includes(c.id)).sort((a, b) => a.name_kana.localeCompare(b.name_kana, 'ja'));
+    const rest = CARDS.filter(c => !first.includes(c.id));   // CARDS は、はじめから50音順
     return `<option value="warp" ${r.id === 'warp' ? 'selected' : ''}>ワープ（ルートに入らない）</option>
       <optgroup label="候補">${first.map(id => `<option value="${id}" ${r.id === id ? 'selected' : ''}>${esc(BYID.get(id).name)}</option>`).join('')}</optgroup>
       <optgroup label="ほかのカード">${rest.map(c => `<option value="${c.id}" ${r.id === c.id ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</optgroup>`;
@@ -1107,17 +1111,18 @@ ACT.photoToRoute = () => {
 
 /* ---------- はじまり ---------- */
 async function init() {
-  try {
-    const res = await fetch('data/cards.json');
-    CARDS = (await res.json()).cards;
-    try { TRIP = await (await fetch('data/trip_text.json')).json(); } catch { TRIP = null; }   // 旅の文（なくてもアプリは動く）
-    try { MORE = (await (await fetch('data/card_more.json')).json()).cards || {}; } catch { MORE = {}; }   // 図鑑のくわしい情報（なくても動く）
-  } catch {
+  // 3つのデータは、順番を待たずにいっしょに読みこむ
+  const json = url => fetch(url).then(r => r.json());
+  const [cards, trip, more] = await Promise.allSettled([json('data/cards.json'), json('data/trip_text.json'), json('data/card_more.json')]);
+  TRIP = trip.status === 'fulfilled' ? trip.value : null;                         // 旅の文（なくてもアプリは動く）
+  MORE = more.status === 'fulfilled' ? more.value.cards || {} : {};              // 図鑑のくわしい情報（なくても動く）
+  if (cards.status === 'fulfilled') CARDS = cards.value.cards;
+  else {
     $('#main').innerHTML = `<div class="empty"><p>データを読みこめませんでした。電波を確かめて、もう一度開いてください。</p></div>`; return;
   }
   // 一覧・図鑑・スライドの順番は、よみの50音順
-  CARDS.sort((a, b) => a.name_kana.localeCompare(b.name_kana, 'ja') || a.id - b.id).forEach(c => BYID.set(c.id, c));
-  CARDS.forEach(c => { c.color = POINT_COLOR[c.points] || WARP_COLOR; });
+  CARDS.sort((a, b) => a.name_kana.localeCompare(b.name_kana, 'ja') || a.id - b.id);
+  CARDS.forEach(c => { c.color = POINT_COLOR[c.points] || WARP_COLOR; BYID.set(c.id, c); });
   S.cur = parseIds(S.cur.join(','));
 
   // QR（?card=）や共有リンク（?route=）から開いたとき

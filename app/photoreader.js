@@ -31,21 +31,18 @@ const PhotoReader = (() => {
   }
 
   /* ---------- 色の計算 ---------- */
-  function hsv(px, n) {
-    const S = new Float32Array(n), V = new Float32Array(n), H = new Float32Array(n);
+  function sv(px, n) {
+    // 色あい（H）は使わないので、あざやかさ（S）と明るさ（V）だけ
+    const S = new Float32Array(n), V = new Float32Array(n);
     for (let i = 0; i < n; i++) {
       const r = px[i * 4] / 255, g = px[i * 4 + 1] / 255, b = px[i * 4 + 2] / 255;
-      const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
-      V[i] = mx; S[i] = mx ? d / mx : 0;
-      let h = 0;
-      if (d) { if (mx === r) h = ((g - b) / d) % 6; else if (mx === g) h = (b - r) / d + 2; else h = (r - g) / d + 4; h *= 60; if (h < 0) h += 360; }
-      H[i] = h;
+      const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+      V[i] = mx; S[i] = mx ? (mx - mn) / mx : 0;
     }
-    return { H, S, V };
+    return { S, V };
   }
   const isWhite = (S, V, i) => V[i] > 0.62 && S[i] < 0.22;          // 数字の白（にじみ込み）
-  let paperV = 0.8;                                                   // 机より明るい白（read で机の明るさから決める）
-  const isPaper = (S, V, i) => V[i] >= paperV && S[i] < 0.3;          // スタンプの白い紙
+  let paperV = 0.8;                                                   // スタンプの白い紙の明るさ（read で机の明るさから決める）
 
   /** 連結成分（4近傍）。mask: Uint8Array → ラベル配列と各成分の情報 */
   function components(mask, w, h, minPx, maxPx) {
@@ -70,7 +67,7 @@ const PhotoReader = (() => {
 
   /* ---------- 1) スタンプを探す ---------- */
   function findStamps(px, w, h, C, dbg) {
-    const n = w * h, { H, S, V } = C;
+    const n = w * h, { S, V } = C;
     // 丸の候補：スタンプの白い紙「ではない」所。白い紙に囲まれた丸は、机やカードとつながらず小さな成分になる
     // （写真によって黒は灰色に、ピンクは白っぽく写るので、色の濃さでは決めない）
     // 写りかたで見つけやすさが変わるので、3つの見方で探してまとめる
@@ -277,7 +274,7 @@ const PhotoReader = (() => {
   }
 
   /** 机の色とちがう所（＝カード）のうち、スタンプからつながっている部分 → 最小の外接長方形 */
-  function findCard(px, w, h, st, table, allStamps) {
+  function findCard(px, w, h, st, table) {
     const R = st.r * 6.2;                         // 探す範囲（カードの半分の対角よりすこし大きく）
     const x0 = Math.max(0, Math.floor(st.cx - R)), y0 = Math.max(0, Math.floor(st.cy - R));
     const x1 = Math.min(w - 1, Math.ceil(st.cx + R)), y1 = Math.min(h - 1, Math.ceil(st.cy + R));
@@ -288,7 +285,6 @@ const PhotoReader = (() => {
       const d = Math.abs(px[i] - table[0]) + Math.abs(px[i + 1] - table[1]) + Math.abs(px[i + 2] - table[2]);
       m[y * ww + x] = d > 70 ? 1 : 0;
     }
-    // ほかのスタンプの中心付近は切る（となりのカードとつながらないように）
     // 小さなすき間をうめる（3×3で閉じる）
     const m2 = dilate(m, ww, hh), m3 = erode(m2, ww, hh);
     // スタンプの中心からつながる部分
@@ -406,16 +402,16 @@ const PhotoReader = (() => {
     const f = (img.width || img.naturalWidth) / w;   // 元の写真は何倍か
     const px = canvas.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, w, h).data;
     await tick(); onStep('スタンプを探しているよ');
-    const C = hsv(px, w * h);
+    const C = sv(px, w * h);
     const table = tableColor(px, w, h);
-    paperV = Math.max(0.8, Math.max(...table) / 255 + 0.06);
+    setPaperFromTable(table);
     const stamps = findStamps(px, w, h, C);
     await tick(); onStep('数字とカードを読んでいるよ');
     const items = [];
     const wb = whiteBalanced(px, stamps);
     for (const st of stamps) {
       const num = readNumberHi(img, f, st) || readNumber(px, w, h, st);
-      const card = findCard(px, w, h, st, table, stamps);
+      const card = findCard(px, w, h, st, table);
       let cands = identify(wb, w, h, card, st);
       // 四すみの点の数（元の大きさの写真から読む）で、候補を並べかえる
       const dots = cands[0] ? readDots(img, f, cands[0]) : null;
@@ -426,7 +422,6 @@ const PhotoReader = (() => {
       items.push({ stamp: st, number: num, card, dots, cands: cands.slice(0, 5), id: top ? top.id : null, d: top ? top.d : 99, margin: cands[1] ? cands[1].d - top.d : 1, crop: cropCard(canvas, card, k) });
       await tick();
     }
-    // スタンプらしくないもの（数字がまったく読めない丸）をのぞく
     // プレイヤーの向きは色ごとに（向かいの人のスタンプが写っていることもある）
     const byColor = new Map();
     for (const it of items) { const k = it.stamp.color; if (!byColor.has(k)) byColor.set(k, []); byColor.get(k).push(it); }
@@ -443,7 +438,7 @@ const PhotoReader = (() => {
       const med = same[same.length >> 1];
       return it.stamp.r < med * 0.72 && (it.stamp.white < 0.5 || it.number.score < 0.75);
     };
-    const kept = items.filter(it => it.number.score > 0.18 && !smallFake(it));
+    const kept = items.filter(it => it.number.score > 0.18 && !smallFake(it));   // 数字がまったく読めない丸もスタンプではない
     assignNumbers(kept);
     return { canvas, items: kept, table };
   }
@@ -499,5 +494,5 @@ const PhotoReader = (() => {
 
   const setPaperFromTable = t => { paperV = Math.max(0.8, Math.max(...t) / 255 + 0.06); };
   const setDigitFont = f => { DIGIT_FONT = { ...DIGIT_FONT, ...f }; digitTemplates = null; };
-  return { OPT, read, readDots, setDigitFont, setPaperFromTable, findStamps, readNumber, findCard, identify, loadImage, toCanvas, hsv, tableColor, cropCard };
+  return { OPT, read, readDots, setDigitFont, setPaperFromTable, findStamps, readNumber, findCard, identify, loadImage, toCanvas, sv, tableColor, cropCard };
 })();

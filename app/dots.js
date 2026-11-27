@@ -47,18 +47,18 @@ const Dots = (() => {
 
   /** 1つの位置の「点らしさ」：まわりの細い白い輪の明るさ − 中の点の明るさ。
    * 中の色が点数マークの色（ref）とちがえば点ではない */
+  // 調べる位置（中の点・まわりの輪）は毎回同じなので、はじめに一度だけ計算しておく（とても多く呼ばれるため）
+  const IN_OFS = [], RING_OFS = [];
+  for (let k = 0; k < 12; k++) {
+    const a = k / 12 * Math.PI * 2;
+    for (const rr of [0, R_DOT * 0.5, R_DOT]) { if (rr === 0 && k) continue; IN_OFS.push(Math.cos(a) * rr, Math.sin(a) * rr); }
+    for (const rr of [R_RING0, R_RING1]) RING_OFS.push(Math.cos(a) * rr, Math.sin(a) * rr);
+  }
   function slotScore(get, u, v, ref) {
-    let cr = 0, cg = 0, cb = 0, cn = 0, ring = 0, rn = 0;
-    for (let k = 0; k < 12; k++) {
-      const a = k / 12 * Math.PI * 2;
-      for (const rr of [0, R_DOT * 0.5, R_DOT]) {
-        if (rr === 0 && k) continue;
-        get(u + Math.cos(a) * rr, v + Math.sin(a) * rr, t); cr += t[0]; cg += t[1]; cb += t[2]; cn++;
-      }
-      for (const rr of [R_RING0, R_RING1]) {
-        get(u + Math.cos(a) * rr, v + Math.sin(a) * rr, t); ring += lum(t[0], t[1], t[2]); rn++;
-      }
-    }
+    let cr = 0, cg = 0, cb = 0, ring = 0;
+    for (let i = 0; i < IN_OFS.length; i += 2) { get(u + IN_OFS[i], v + IN_OFS[i + 1], t); cr += t[0]; cg += t[1]; cb += t[2]; }
+    for (let i = 0; i < RING_OFS.length; i += 2) { get(u + RING_OFS[i], v + RING_OFS[i + 1], t); ring += lum(t[0], t[1], t[2]); }
+    const cn = IN_OFS.length / 2, rn = RING_OFS.length / 2;
     const c = [cr / cn, cg / cn, cb / cn];
     let d = ring / rn - lum(c[0], c[1], c[2]);
     if (ref) {

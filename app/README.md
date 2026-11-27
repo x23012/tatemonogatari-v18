@@ -20,6 +20,7 @@ python3 -m http.server 8765
 
 ## データを変えたとき
 - `data/cards.json` と `photos/` はキット直下のものをコピーしています。直したら `app/data/`・`app/photos/` にもコピーしてください。
+- `photos/s/` は一覧などの小さい表示に使う縮小版（横480px）です。写真を直したら作り直してください：`cd app && for f in photos/*.jpg; do sips -s format jpeg -s formatOptions 40 --resampleWidth 480 "$f" --out "photos/s/$(basename "$f")"; done`
 - `sw.js` の `VERSION` を1つ上げると、スマホに保存された古いデータが入れかわります。
 - `lat` / `lng` を入れると、自動で「近い順に並べる」ボタンが出て、Googleマップにも座標で渡すようになります。
 

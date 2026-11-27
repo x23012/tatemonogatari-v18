@@ -1,5 +1,5 @@
 /* オフラインでも開けるようにする。データや写真を変えたら VERSION を上げる */
-const VERSION = 'tatemono-v18-16';
+const VERSION = 'tatemono-v18-17';
 const SHELL = ['./', 'index.html', 'style.css', 'app.js', 'matcher.js', 'dots.js', 'photoreader.js', 'tripText.js', 'data/cards.json', 'data/trip_text.json', 'data/card_more.json', 'manifest.webmanifest', 'icon.svg', 'icon-192.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -18,7 +18,7 @@ self.addEventListener('fetch', e => {
       .catch(() => caches.match(req, { ignoreSearch: true }).then(r => r || caches.match('index.html'))));
     return;
   }
-  // 写真・カード画像・フォント：保存分を優先
+  // 写真（一覧用の縮小版 photos/s/ もふくむ）・カード画像・フォント：保存分を優先
   if (same || /fonts\.(googleapis|gstatic)\.com/.test(url.host)) {
     e.respondWith(caches.match(req).then(hit => hit || fetch(req).then(r => {
       if (r.ok || r.type === 'opaque') { const cp = r.clone(); caches.open(VERSION).then(c => c.put(req, cp)); }

@@ -7,7 +7,6 @@ const CardMatcher = (() => {
   // カード上の位置（0〜1）。印刷データの実測から
   // ver18：写真がカード全体に広がり、帯はない。点数の色は左上のマーク（バッジ）でとる
   const BADGE = { x0: 0.05, x1: 0.17, y0: 0.035, y1: 0.155 };
-  const LEFT_BAND = BADGE, RIGHT_BAND = BADGE;
   const PHOTO = { x0: 0.03, x1: 0.97, y0: 0.03, y1: 0.97 };
   const GX = 6, GY = 9;     // 色のマス
   const LX = 10, LY = 15;   // 明るさのマス
@@ -43,7 +42,7 @@ const CardMatcher = (() => {
     return out;
   }
 
-  /** 帯の色：白い文字をさけるため、明るさの低い方から6割の平均 */
+  /** マークの色：白い文字をさけるため、明るさの低い方から6割の平均 */
   function bandColor(get, box) {
     const vals = [], t = [0, 0, 0];
     for (let j = 0; j < 14; j++) for (let i = 0; i < 4; i++) {
@@ -76,7 +75,7 @@ const CardMatcher = (() => {
     for (let i = 0; i < out.length; i++) out[i] = (out[i] - m) / sd;
     return out;
   }
-  /** 帯の色を、明るさに左右されにくい形（色み2つ＋あざやかさ）にする */
+  /** マークの色を、明るさに左右されにくい形（色み2つ＋あざやかさ）にする */
   function chroma(rgb) {
     const [r, g, b] = rgb, s = r + g + b + 1;
     const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
@@ -87,8 +86,7 @@ const CardMatcher = (() => {
     const get = sampler(px, w, h, x0, y0, size, rot);
     const color = normalizePerChannel(cellMeans(get, PHOTO, GX, GY, 3));
     const lum = lumGrid(get);
-    const bl = chroma(bandColor(get, LEFT_BAND)), br = chroma(bandColor(get, RIGHT_BAND));
-    return { color, lum, band: [(bl[0] + br[0]) / 2, (bl[1] + br[1]) / 2, (bl[2] + br[2]) / 2] };
+    return { color, lum, band: chroma(bandColor(get, BADGE)) };   // 点数のマークの色（ver16 の左右の帯のなごりで band という名前）
   }
 
   function dist(a, b) {
@@ -181,11 +179,7 @@ const CardMatcher = (() => {
       keep.forEach(v => { m[0] += v[0]; m[1] += v[1]; m[2] += v[2]; });
       return chroma(m.map(x => x / keep.length));
     };
-    const color = cells(PHOTO, GX, GY, 3), lum = cells(PHOTO, LX, LY, 2);
-    const bl = band(LEFT_BAND), br = band(RIGHT_BAND);
-    const bands = [bl, br].filter(Boolean);
-    const bandAvg = bands.length ? [0, 1, 2].map(c => bands.reduce((a, b) => a + b[c], 0) / bands.length) : null;
-    return { color, lum, band: bandAvg };
+    return { color: cells(PHOTO, GX, GY, 3), lum: cells(PHOTO, LX, LY, 2), band: band(BADGE) };
   }
   function normMasked(val, use, ch) {   // ch: 3=色ごと, 1=明るさ
     const n = use.length, out = new Float32Array(n * ch);
