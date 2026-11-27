@@ -19,6 +19,7 @@ const S = {
   months: load(LS_MONTHS, {}),     // カードID → スタンプの月（写真まとめ読みで入れたとき）
   q: '', cat: '', region: '', pts: 0,   // 一覧から選ぶ：しぼりこみ
   zq: '', zcat: '',                       // 図鑑：しぼりこみ
+  by: { name: true, area: true },         // 検索のことばを、名前・地域のどちらで（両方も）さがすか
 };
 
 /* ---------- 小さな道具 ---------- */
@@ -51,8 +52,19 @@ const pic = (c, cls = '', big = false) => `<img class="pic ${cls}" src="art/${bi
 const pt = (c, big = false) => `<span class="pt${big ? ' big' : ''}" style="--c:${c.color}" aria-label="${c.points}点"><b>${c.points}</b><small>てん</small></span>`;
 const gatsu = m => `${m}<ruby>月<rt>がつ</rt></ruby>`;
 const CATS = ['国宝', '重要文化財', '登録有形文化財'];
-/** 検索のことばが、名前・よみ・市町などに入っているか */
-const matchQ = (c, q) => !q || [c.name, c.name_kana, c.city, c.other_name, c.official_name].some(v => String(v || '').toLowerCase().includes(q));
+/** 検索のことばが入っているか。名前（よみ・べつの名前もふくむ）と地域（市町・地区）の、選んだ方で調べる */
+const matchQ = (c, q) => !q || [
+  ...(S.by.name ? [c.name, c.name_kana, c.other_name, c.official_name] : []),
+  ...(S.by.area ? [c.city, c.region] : []),
+].some(v => String(v || '').toLowerCase().includes(q));
+/** 検索らんと「名前」「地域」のボタン。はじめは両方。おすと、その方がはずれる（もう一度おすと、もどる）。
+ * 両方はずれそうなときは、おしていない方を選ぶ */
+const BY = [['name', '名前'], ['area', '地域']];
+const searchPlaceholder = ex => S.by.name && S.by.area ? `名前や 市・町で さがす（れい：${ex}）` : S.by.name ? '名前で さがす' : `市・町や 地区で さがす（れい：${ex}）`;
+const searchBox = (id, value, ex) => `
+    <label class="sr" for="${id}">さがす</label>
+    <input class="search" id="${id}" type="search" placeholder="${searchPlaceholder(ex)}" data-ex="${ex}" value="${esc(value)}" autocomplete="off">
+    <div class="chips by" role="group" aria-label="さがす所"><span class="by-label">${R('さがす{所|ところ}')}</span>${BY.map(([v, l]) => `<button class="chip" data-act="by" data-v="${v}" aria-pressed="${S.by[v]}">${l}</button>`).join('')}</div>`;
 /** くわしい画面（カード・図鑑）の上の部分：大きなイラスト・点数・区分・名前・ひとこと・説明 */
 const cardHead = c => `
     ${pic(c, 'detail-photo', true)}
@@ -188,8 +200,7 @@ VIEWS.select = () => {
   return {
     title: R('カードを{選|えら}ぶ'), back: true,
     html: `
-    <label class="sr" for="q">さがす</label>
-    <input class="search" id="q" type="search" placeholder="名前や 市・町で さがす（れい：犬山）" value="${esc(S.q)}" autocomplete="off">
+    ${searchBox('q', S.q, '犬山')}
     <div class="chips" role="group" aria-label="点数（マークの色）">${pts.map(v => `<button class="chip" data-act="pts" data-v="${v}" aria-pressed="${S.pts === v}" ${v ? `style="--c:${POINT_COLOR[v]};border-color:${POINT_COLOR[v]}"` : ''}>${v ? `${v}てん` : 'すべての点数'}</button>`).join('')}</div>
     <div class="chips" role="group" aria-label="区分">${cats.map(([v, l]) => `<button class="chip" data-act="cat" data-v="${v}" aria-pressed="${S.cat === v}">${l}</button>`).join('')}</div>
     <div class="chips" role="group" aria-label="地区">${regions.map(v => `<button class="chip" data-act="region" data-v="${esc(v)}" aria-pressed="${S.region === v}">${v ? esc(v) : 'どこでも'}</button>`).join('')}</div>
@@ -268,8 +279,7 @@ function zukanList() {
     title: R('カード{図鑑|ずかん}'), back: false,
     html: `
     <p class="muted" style="margin-top:0">${R('{気|き}になった{建物|たてもの}をおすと、カードより{少|すこ}しくわしい{話|はなし}と、{文化遺産|ぶんかいさん}オンラインへのリンクが{見|み}られるよ。')}</p>
-    <label class="sr" for="zq">さがす</label>
-    <input class="search" id="zq" type="search" placeholder="名前や 市・町で さがす（れい：岡崎）" value="${esc(S.zq)}" autocomplete="off">
+    ${searchBox('zq', S.zq, '岡崎')}
     <div class="chips" role="group" aria-label="区分">${cats.map(([v, l]) => `<button class="chip" data-act="zcat" data-v="${v}" aria-pressed="${S.zcat === v}">${l}</button>`).join('')}</div>
     <p class="count" id="zcount"></p>
     <ul class="zk-grid" id="zlist"></ul>`,
@@ -659,6 +669,7 @@ VIEWS.help = () => {
   ${sec('h-select', '🃏', `<ul>
     ${L('47まいのカードが{並|なら}んでいるので、{持|も}っているカードの{右|みぎ}の□をおしてチェックする。')}
     ${L('{上|うえ}の{検索|けんさく}らんに{名前|なまえ}や{市|し}・{町|まち}を{入|い}れたり、{点数|てんすう}・{区分|くぶん}・{地区|ちく}のボタンでしぼりこんだりできる。')}
+    ${L('{検索|けんさく}らんの{下|した}の「{名前|なまえ}」「{地域|ちいき}」で、どちらでさがすかを{選|えら}べる。はじめは{両方|りょうほう}。おすとその{方|ほう}がはずれ、もう{一度|いちど}おすともどる。')}
     ${L('カードの{絵|え}や{名前|なまえ}をおすと、くわしい{情報|じょうほう}が{見|み}られる。')}
     ${L('{選|えら}び{終|お}わったら、{下|した}の「ルートを{見|み}る」をおす。')}
   </ul>`)}
@@ -743,6 +754,14 @@ const ACT = {
   jump(el) { const t = document.getElementById(el.dataset.to); if (t) { t.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); t.querySelector('h2').focus({ preventScroll: true }); } },
   detail(el) { location.hash = `#/card/${el.dataset.id}`; },
   zgo(el) { zukanGo(Number(el.dataset.id), el.dataset.dir); },
+  by(el) {
+    const v = el.dataset.v, other = v === 'name' ? 'area' : 'name';
+    S.by[v] = !S.by[v];
+    if (!S.by.name && !S.by.area) S.by[other] = true;   // 両方はずれたら、おしていない方を選ぶ
+    document.querySelectorAll('[data-act=by]').forEach(b => b.setAttribute('aria-pressed', S.by[b.dataset.v]));
+    const box = $('#q') || $('#zq'); if (box) box.placeholder = searchPlaceholder(box.dataset.ex);
+    if ($('#list')) renderList(); else if ($('#zlist')) renderZukan();
+  },
   zcat(el) { S.zcat = el.dataset.v; document.querySelectorAll('[data-act=zcat]').forEach(b => b.setAttribute('aria-pressed', b === el)); renderZukan(); },
   cat(el) { S.cat = el.dataset.v; document.querySelectorAll('[data-act=cat]').forEach(b => b.setAttribute('aria-pressed', b === el)); renderList(); },
   pts(el) { S.pts = Number(el.dataset.v); document.querySelectorAll('[data-act=pts]').forEach(b => b.setAttribute('aria-pressed', b === el)); renderList(); },

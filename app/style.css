@@ -132,6 +132,8 @@ p { margin: 8px 0; }
   border: 2px solid var(--line); background: var(--paper); font-size: 15px; font-weight: 700; cursor: pointer; white-space: nowrap;
 }
 .chip[aria-pressed="true"] { background: var(--c, var(--ink)); border-color: var(--c, var(--ink)); color: #fff; }
+.chips.by { align-items: center; padding-top: 8px; }
+.by-label { flex: none; font-size: 14px; font-weight: 700; color: var(--ink-2); margin-right: 2px; }
 .count { margin: 8px 2px; color: var(--ink-2); font-size: 15px; }
 
 /* カード一覧（横長） */
